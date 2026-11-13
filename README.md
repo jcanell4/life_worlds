@@ -49,6 +49,8 @@ cmake --preset darwin && cmake --build --preset darwin   # macOS
 cmake --preset linux && cmake --build --preset linux     # Linux
 ```
 
+CI: GitHub Actions (`.github/workflows/build.yml`) builds on Linux, macOS, and Windows (raylib/EnTT/json via FetchContent) and runs a `--console` smoke test.
+
 ## Run
 
 Run from the project root (or pass a valid path to `--config`) so the JSON can be found.
