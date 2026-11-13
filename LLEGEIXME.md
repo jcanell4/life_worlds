@@ -1,0 +1,155 @@
+([Leer en español](LEEME.md))
+([Read in English](README.md))
+
+# life_worlds
+
+Simulació ECS en C++ amb [EnTT](https://github.com/skypjack/entt) i visualització amb [raylib](https://www.raylib.com/): un món N×N amb agents configurables (ara plantes `random_plant`) que neixen, envelleixen per etapes i moren.
+
+## Requisits
+
+- CMake ≥ 3.20
+- Compilador C++17 (Apple Clang, Clang o GCC)
+- raylib 5.x
+
+macOS (Homebrew, Apple Silicon o Intel):
+
+```bash
+brew install cmake raylib
+```
+
+Linux (Debian / Ubuntu). El paquet del sistema evita compilar raylib:
+
+```bash
+sudo apt install build-essential cmake pkg-config libraylib-dev
+```
+
+Si raylib no està instal·lat, CMake el descarrega amb FetchContent (`-DLIFE_WORLDS_FETCH_RAYLIB=OFF` ho desactiva). EnTT i [nlohmann/json](https://github.com/nlohmann/json) sempre es descarreguen la primera vegada (cal Internet). Per compilar raylib des del codi font a Linux també calen les capçaleres de finestra i OpenGL:
+
+```bash
+sudo apt install libgl1-mesa-dev libx11-dev libxrandr-dev libxi-dev \
+  libxcursor-dev libxinerama-dev libxkbcommon-dev libwayland-dev libasound2-dev
+```
+
+El directori de build depèn del sistema (`build/darwin` a macOS, `build/linux` a Linux) perquè les dues màquines no comparteixin la mateixa cache de CMake. La compilació des de l’editor és en Debug.
+
+## Compilar
+
+Recompilació neta a la màquina actual (esborra només `build/darwin` o `build/linux`):
+
+```bash
+./rebuild.sh
+```
+
+A l’editor, la tasca per defecte **CMake: build** configura i compila (a macOS: ⇧⌘B). Depurar o executar amb una configuració de `launch.json` compila abans, si cal.
+
+Des de la terminal, el preset visible és el del sistema (CMake ≥ 3.21):
+
+```bash
+cmake --preset darwin && cmake --build --preset darwin   # macOS
+cmake --preset linux && cmake --build --preset linux     # Linux
+```
+
+## Executar
+
+Cal executar des de l’arrel del projecte (o passar una ruta vàlida a `--config`) perquè es trobi el JSON.
+
+Mode visual (finestra raylib; Esc o tancar per aturar):
+
+```bash
+./build/darwin/life_worlds   # macOS
+./build/linux/life_worlds    # Linux
+```
+
+Mode consola / headless (sense finestra):
+
+```bash
+./build/darwin/life_worlds --console
+# o:
+LIFE_WORLDS_HEADLESS=1 ./build/linux/life_worlds
+```
+
+Configuració alternativa:
+
+```bash
+./build/linux/life_worlds --config config/default.json --console
+```
+
+A la finestra: cel·les buides en verd clar; cada espècie es dibuixa amb color de paleta segons l’índex (cercle si l’índex és parell, quadrat si és senar); els agents QL són triangles taronja. La barra inferior mostra tick i comptadors. **F8**, **F12** o **Ctrl+P** activa/desactiva el mode ràpid (sense dibuixar el món; preferiu **F8**, perquè raylib usa F12 per captures).
+
+## Configuració (JSON)
+
+Edita [`config/default.json`](config/default.json). `Simulation::init` carrega el fitxer, crea l’`environment` i una `Entity` per cada entrada de `entities` (ordre = ordre de `step`).
+
+### Simulació (arrel)
+
+| Paràmetre | Descripció |
+|-----------|------------|
+| `cell_size_px` | Píxels per cel·la a la finestra |
+| `hud_height_px` | Alçada en píxels de la barra inferior |
+| `hud_lines` | Nombre de files del HUD (≥ 1); les mètriques es reparteixen entre elles |
+| `ticks_per_second` | Ritme de ticks de simulació amb el món visible (independent del FPS) |
+| `display_fps` | FPS objectiu mentre es dibuixa el món (defecte 60) |
+| `fast_display_fps` | Cada quan es redibuixa l’overlay en mode ràpid (sense limitar els steps; defecte 30) |
+| `fast_slice_seconds` | Cada quan es comprova el teclat en mode ràpid mentre s’executen steps (defecte ~1/60 s) |
+| `tick_count` | Límit de ticks (`0` = sense límit en visual; 40 en consola) |
+| `rng_seed` | Llavor del generador aleatori |
+| `log_tick_summary` | Una línia de resum per tick a la consola |
+| `log_events` | Log detallat d’esdeveniments tipats |
+| `cycles_per_time_unit` | Cicles per unitat de temps (p. ex. un any) |
+| `environment` | Món (`type: grid`, `grid_size`, …) |
+| `entities` | Llista de mòduls/`Entity` a executar cada tick |
+
+### Environment `grid`
+
+| Paràmetre | Descripció |
+|-----------|------------|
+| `type` | `"grid"` |
+| `grid_size` | N de la graella N×N |
+
+### Entitat `random_plant`
+
+| Paràmetre | Descripció |
+|-----------|------------|
+| `type` | Ha de ser `"random_plant"` |
+| `offspring_inheritance_jitter` | Variació aleatòria màxima (±) en heretar fertilitat (`0` = còpia exacta) |
+| `plant_types[].name` | Nom de l’espècie |
+| `plant_types[].min_population` | Mínim d’exemplars; `0` = sense sembra forçada |
+| `plant_types[].max_population` | Màxim d’exemplars (reproducció i sembra no el sobrepassen); `0` = sense límit |
+| `plant_types[].stage_count` | Nombre d’etapes (màx. 8) |
+| `plant_types[].time_units_by_stage` | Durada de cada etapa en unitats de temps (`<= 0` → 1) |
+| `plant_types[].death_rate_by_stage` | Probabilitat de mort per etapa |
+| `plant_types[].offspring_rate_by_stage` | Probabilitat de descendència per etapa (valor inicial) |
+
+### Entitat `ql_agent` (Q-learning tabular)
+
+Cal posar-la **després** de `random_plant` a `entities`. L’agent **tria** l’acció; el `GridEnvironment` **aplica** el efecte (move/eat/cut). Accions: Up/Down/Left/Right/Eat/Cut. Estat: visió en 4 direccions `(bucket_distància, tipus)` amb tipus `herb=0`, `shrub=1`, `ql_agent=2`, `empty_edge=3` i distància `0` (1 cel·la), `1` (2–4), `2` (5–10), `3` (>10), més el nivell d’energia `3` ([75%,100%]), `2` ([50%,75%)), `1` ([25%,50%)), `0` ([0%,25%)). Espai teòric: \((4 \times 4)^4 \times 4 = 262144\) estats.
+
+Moviment: no es pot entrar a una cel·la amb planta ni amb un altre agent QL (cal **menjar** o **tallar** abans). Eat/Cut només actuen sobre una planta **colindant** (ordre Up/Down/Left/Right si n’hi ha més d’una); no des de la mateixa cel·la.
+
+Després d’Eat/Cut queda un residu a la cel·la (**gris** = menjada, **marró** = tallada) fins que hi neix una planta viva. El HUD/log mostra comptadors acumulats `eat_<espècie>` i `cut_<espècie>`.
+
+| Paràmetre | Descripció |
+|-----------|------------|
+| `type` | `"ql_agent"` |
+| `mode` | `"train"` (ε-greedy + update Q; energia 0 → reset) o `"eval"` (greedy; energia 0 → score i inactiu) |
+| `agent_count` | Nombre d’agents a generar |
+| `energy_max` / `energy_drain` | Energia màxima i drenatge per cicle (defecte 100 / 5) |
+| `herb_energy_delta` / `shrub_energy_delta` | Canvi d’energia (i reward de menjar) en Eat |
+| `ingestion_factor` | Multiplicadors `[herb, shrub]` sobre el delta d’energia (defecte `[1,1]`) |
+| `alpha` / `gamma` / `epsilon` | Hiperparàmetres Q-learning |
+| `max_vision` | Tope de distància (`0` = `grid_size`) |
+| `q_table_path` | Fitxer binari de la taula Q (save en train al tancar; load en eval o si `reuse_q_table`) |
+| `reuse_q_table` | En `train`, si `true` carrega la taula existent i continua l’aprenentatge; si `false` comença de zero |
+
+Recompenses per cicle (banda d’energia, després del drenatge/menjar): `>75%` → +2; `(50,75%]` → −2; `(25,50%]` → −3; `[0,25%]` → −5. El reward de menjar és el delta d’energia de l’acció Eat.
+
+## Estructura
+
+- `core/` — `Position`/`Age`, `StepContext`, mètriques de tick
+- `entity/` — interfície `Entity`
+- `environment/` — interfície `Environment` + `grid/` (queries, `apply_action`, render)
+- `plant/random_plant/` — dinàmica poblacional + trets visuals
+- `agent/ql_agent/` — Q-learning (tria accions; aprèn dels outcomes)
+- `simulation/` — orquestració, config de display, `events/`
+- `config_loader.cpp` — JSON (`environment` + `entities`)
+- `main.cpp` — `--config`, `--console` / visual per defecte

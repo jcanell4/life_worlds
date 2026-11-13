@@ -1,0 +1,87 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug life_worlds (Linux)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/linux/life_worlds",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "linux": {
+                "MIMode": "gdb"
+            }
+        },
+        {
+            "name": "Debug life_worlds console (Linux)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/linux/life_worlds",
+            "args": ["--console"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "linux": {
+                "MIMode": "gdb"
+            }
+        },
+        {
+            "name": "Debug life_worlds (macOS)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/darwin/life_worlds",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "CMake: build",
+            "osx": {
+                "type": "lldb"
+            }
+        },
+        {
+            "name": "Debug life_worlds console (macOS)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/darwin/life_worlds",
+            "args": ["--console"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "CMake: build"
+        },
+        {
+            "name": "Debug life_worlds (macOS cppdbg)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/darwin/life_worlds",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            "preLaunchTask": "CMake: build"
+        }
+    ]
+}

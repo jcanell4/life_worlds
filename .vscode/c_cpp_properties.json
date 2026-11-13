@@ -1,0 +1,52 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/build/linux/_deps/entt-src/src",
+                "${workspaceFolder}/build/linux/_deps/raylib-src/src",
+                "/usr/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": "${workspaceFolder}/compile_commands.json"
+        },
+        {
+            "name": "macOS (Apple Silicon)",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/build/darwin/_deps/entt-src/src",
+                "${workspaceFolder}/build/darwin/_deps/raylib-src/src",
+                "/opt/homebrew/include",
+                "/usr/local/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-arm64",
+            "compileCommands": "${workspaceFolder}/compile_commands.json"
+        },
+        {
+            "name": "macOS (Intel)",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/build/darwin/_deps/entt-src/src",
+                "${workspaceFolder}/build/darwin/_deps/raylib-src/src",
+                "/opt/homebrew/include",
+                "/usr/local/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-x64",
+            "compileCommands": "${workspaceFolder}/compile_commands.json"
+        }
+    ],
+    "version": 4
+}

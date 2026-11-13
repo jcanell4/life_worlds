@@ -1,0 +1,57 @@
+{
+  "tick_count": 0,
+  "cycles_per_time_unit": 50,
+  "rng_seed": 42,
+  "cell_size_px": 28,
+  "hud_height_px": 96,
+  "hud_lines": 4,
+  "ticks_per_second": 5.0,
+  "display_fps": 60,
+  "fast_display_fps": 5,
+  "fast_slice_seconds": 0.016,
+  "log_events": false,
+  "log_tick_summary": true,
+  "environment": {
+    "type": "grid",
+    "grid_size": 24
+  },
+  "entities": [
+    {
+      "type": "random_plant",
+      "offspring_inheritance_jitter": 0.01,
+      "plant_types": [
+        {
+          "name": "herb",
+          "min_population": 5,
+          "max_population": 10,
+          "stage_count": 5,
+          "death_rate_by_stage": [0.002, 0.005, 0.012, 0.018, 0.045],
+          "offspring_rate_by_stage": [0.00, 0.024, 0.046, 0.300, 0.085],
+          "time_units_by_stage": [1, 1, 2, 5, 2]
+        },
+        {
+          "name": "shrub",
+          "min_population": 5,
+          "max_population": 30,
+          "stage_count": 6,
+          "death_rate_by_stage": [0.001, 0.003, 0.008, 0.015, 0.030, 0.060],
+          "offspring_rate_by_stage": [0.00, 0.012, 0.014, 0.055, 0.055, 0.015],
+          "time_units_by_stage": [1, 1, 1, 1, 2, 3]
+        }
+      ]
+    },
+    {
+      "type": "ql_agent",
+      "mode": "eval",
+      "agent_count": 5,
+      "energy_max": 100,
+      "energy_drain": 1,
+      "ingestion_factor": [2.0, 2.5],
+      "alpha": 0.1,
+      "gamma": 0.9,
+      "epsilon": 0.1,
+      "q_table_path": "config/ql_qtable.bin",
+      "reuse_q_table": true
+    }
+  ]
+}
