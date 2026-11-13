@@ -3,7 +3,7 @@
 
 # life_worlds
 
-Simulación ECS en C++ con [EnTT](https://github.com/skypjack/entt) y visualización con [raylib](https://www.raylib.com/): un mundo N×N con agentes configurables (ahora plantas `random_plant`) que nacen, envejecen por etapas y mueren.
+Simulación ECS en C++ con [EnTT](https://github.com/skypjack/entt) y visualización con [raylib](https://www.raylib.com/): un mundo N×N con módulos configurables (`random_plant`, `ql_agent`) desacoplados del grid mediante **ports** y **adapters**, y dibujados con **capas de render** registradas en el composition root.
 
 ## Requisitos
 
@@ -76,9 +76,16 @@ Configuración alternativa:
 
 En la ventana: celdas vacías en verde claro; cada especie se dibuja con color de paleta según el índice (círculo si el índice es par, cuadrado si es impar); los agentes QL son triángulos naranja. La barra inferior muestra tick y contadores. **F8**, **F12** o **Ctrl+P** activa/desactiva el modo rápido (sin dibujar el mundo; preferid **F8**, porque raylib usa F12 para capturas).
 
+## Arquitectura (ports y plugins)
+
+- **Ports** (`ports/`): contratos sin grid — `OccupancyPort` (`free_cells`) para plantas; `AgentWorldPort` (`observe`, `apply_action`, spawn/reset) para QL.
+- **Adapters grid** (`environment/grid/adapters`): implementan los ports delegando en `GridEnvironment`.
+- **Render layers** (`environment/grid/layers`): plugins visuales (`draw_grid`, residuos, plantas, agentes QL) registrados con `Environment::add_render_layer`.
+- **Composition root** (`app/grid_compose`): `compose_grid_app` crea el grid, cablea ports + capas, y construye las `Entity` con los ports inyectados. Los process de plant/QL **no** conocen `GridEnvironment`.
+
 ## Configuración (JSON)
 
-Edita [`config/default.json`](config/default.json). `Simulation::init` carga el archivo, crea el `environment` y una `Entity` por cada entrada de `entities` (orden = orden de `step`).
+Edita [`config/default.json`](config/default.json). `load_config` parsea la simulación y llama a `compose_grid_app`, que crea el `environment`, registra las capas de dibujo y una `Entity` por cada entrada de `entities` (orden = orden de `step`).
 
 ### Simulación (raíz)
 
@@ -122,7 +129,7 @@ Edita [`config/default.json`](config/default.json). `Simulation::init` carga el 
 
 ### Entidad `ql_agent` (Q-learning tabular)
 
-Hay que ponerla **después** de `random_plant` en `entities`. El agente **elige** la acción; el `GridEnvironment` **aplica** el efecto (move/eat/cut). Acciones: Up/Down/Left/Right/Eat/Cut. Estado: visión en 4 direcciones `(bucket_distancia, tipo)` con tipos `herb=0`, `shrub=1`, `ql_agent=2`, `empty_edge=3` y distancia `0` (1 celda), `1` (2–4), `2` (5–10), `3` (>10), más el nivel de energía `3` ([75%,100%]), `2` ([50%,75%)), `1` ([25%,50%)), `0` ([0%,25%)). Espacio teórico: \((4 \times 4)^4 \times 4 = 262144\) estados.
+Hay que ponerla **después** de `random_plant` en `entities`. El agente **elige** la acción vía `AgentWorldPort`; el adapter grid **aplica** el efecto en `GridEnvironment` (move/eat/cut). Acciones: Up/Down/Left/Right/Eat/Cut. Estado: visión en 4 direcciones `(bucket_distancia, tipo)` con tipos `herb=0`, `shrub=1`, `ql_agent=2`, `empty_edge=3` y distancia `0` (1 celda), `1` (2–4), `2` (5–10), `3` (>10), más el nivel de energía `3` ([75%,100%]), `2` ([50%,75%)), `1` ([25%,50%)), `0` ([0%,25%)). Espacio teórico: \((4 \times 4)^4 \times 4 = 262144\) estados. `max_vision` `0` usa `port.default_vision_range()` (en el grid: `grid_size`).
 
 Movimiento: no se puede entrar en una celda con planta ni con otro agente QL (hay que **comer** o **cortar** antes). Eat/Cut solo actúan sobre una planta **colindante** (orden Up/Down/Left/Right si hay más de una); no desde la misma celda.
 
@@ -145,11 +152,13 @@ Recompensas por ciclo (banda de energía, después del drenaje/comida): `>75%` �
 
 ## Estructura
 
+- `ports/` — `OccupancyPort`, `AgentWorldPort` (contratos sin grid)
 - `core/` — `Position`/`Age`, `StepContext`, métricas de tick
 - `entity/` — interfaz `Entity`
-- `environment/` — interfaz `Environment` + `grid/` (queries, `apply_action`, render)
-- `plant/random_plant/` — dinámica poblacional + rasgos visuales
-- `agent/ql_agent/` — Q-learning (elige acciones; aprende de los outcomes)
+- `environment/` — interfaz `Environment` (`add_render_layer`) + `grid/` (queries, `apply_action`, `adapters/`, `layers/`)
+- `plant/random_plant/` — dinámica poblacional + rasgos visuales (ocupación vía port)
+- `agent/ql_agent/` — Q-learning (elige acciones; siente/actúa vía port)
+- `app/` — composition root grid (`compose_grid_app`: ports + capas + entities)
 - `simulation/` — orquestación, config de display, `events/`
-- `config_loader.cpp` — JSON (`environment` + `entities`)
+- `config_loader.cpp` — JSON de simulación + llamada a `compose_grid_app`
 - `main.cpp` — `--config`, `--console` / visual por defecto
