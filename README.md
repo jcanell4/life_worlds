@@ -49,7 +49,7 @@ cmake --preset darwin && cmake --build --preset darwin   # macOS
 cmake --preset linux && cmake --build --preset linux     # Linux
 ```
 
-CI: GitHub Actions (`.github/workflows/build.yml`) builds on Linux, macOS, and Windows (raylib/EnTT/json via FetchContent) and runs a `--console` smoke test.
+CI: GitHub Actions (`.github/workflows/build.yml`) builds on Linux, macOS, and Windows (raylib/EnTT/json via FetchContent), runs a `--console` smoke test, and uploads **artifacts** (`life_worlds-linux` / `-macos` / `-windows`) with the binary and `config/default.json`. Download them under **Actions** → run → Artifacts (retained 14 days).
 
 ## Run
 
