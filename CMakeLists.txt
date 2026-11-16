@@ -94,6 +94,8 @@ add_executable(life_worlds
   src/environment/grid/adapters.cpp
   src/environment/grid/layers.cpp
   src/plant/random_plant/process.cpp
+  src/plant/random_plant/residue.cpp
+  src/plant/energy_storage_plant/process.cpp
   src/agent/ql_agent/process.cpp
   src/agent/ql_agent/q_table.cpp
 )

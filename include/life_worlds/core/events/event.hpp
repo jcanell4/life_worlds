@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include <entt/entt.hpp>
 
@@ -21,6 +22,8 @@ enum class EventKind {
 };
 
 // Typed simulation event; modules emit, simulation logs / future env reacts.
+// This is the single vocabulary for "something happened": modules emit it
+// directly instead of keeping private record structs that mirror it.
 struct Event {
   EventKind kind = EventKind::Generic;
   entt::entity entity = entt::null;
@@ -30,6 +33,21 @@ struct Event {
   int y = 0;
   int value = 0;
   std::string detail;
+
+  // `entity` of species / type `name` was born at (x, y). `parent` is
+  // entt::null for individuals that were seeded rather than reproduced.
+  static Event birth(entt::entity entity, entt::entity parent, std::string name,
+                     int x, int y) {
+    return Event{EventKind::Birth, entity, parent, std::move(name), x, y, 0, {}};
+  }
+
+  // `entity` of species / type `name` died at (x, y). The age in cycles goes
+  // into `value` and the age stage into `detail`.
+  static Event death(entt::entity entity, std::string name, int x, int y,
+                     int age_cycles, int age_stage) {
+    return Event{EventKind::Death, entity, entt::null, std::move(name), x, y,
+                 age_cycles, std::to_string(age_stage)};
+  }
 
   // Format a single log line for console / file sinks.
   std::string to_string() const {

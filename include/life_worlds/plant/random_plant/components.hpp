@@ -11,11 +11,6 @@
 namespace life_worlds {
 namespace random_plant {
 
-// Identifies which species this plant entity is (index into plant_types).
-struct PlantType {
-  PlantKind kind = 0;
-};
-
 // Species name copied at spawn (e.g. "herb", "shrub") for other modules.
 struct SpeciesName {
   std::string name;
@@ -30,6 +25,8 @@ enum class ResidueKind : std::uint8_t {
 struct PlantResidue {
   ResidueKind kind = ResidueKind::Eaten;
   PlantKind species = 0;
+  // Visual of the plant that left the residue (its shape is reused).
+  Visual visual;
 };
 
 // Return the age stage index for a plant with the given cycle count.
@@ -71,6 +68,7 @@ struct Fertility {
 };
 
 // Marker: entity is a living plant managed by RandomPlantProcess.
+// The species is stored in the shared plant::PlantTypeIndex component.
 struct Plant {};
 
 }  // namespace random_plant

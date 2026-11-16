@@ -1,8 +1,10 @@
 #pragma once
 
+#include "life_worlds/core/components.hpp"
+#include "life_worlds/plant/common.hpp"
+
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -11,11 +13,9 @@ namespace random_plant {
 
 // Capacity of the per-stage tables; PlantTypeConfig::stage_count must not exceed it.
 inline constexpr std::size_t kMaxStages = 8;
-// Soft upper bound on species count for a single random_plant agent.
-inline constexpr std::size_t kMaxPlantKinds = 32;
 
-// Species index into RandomPlantConfig::plant_types.
-using PlantKind = std::uint8_t;
+// Species index into RandomPlantConfig::plant_types (shared plant type).
+using plant::PlantKind;
 
 struct PlantTypeConfig {
   std::string name;
@@ -40,6 +40,8 @@ struct PlantTypeConfig {
   // max(1, time_units_by_stage[i]) * cycles_per_time_unit.
   // Values <= 0 are treated as 1.
   std::array<int, kMaxStages> time_units_by_stage{};
+  // Optional shape / color; unset parts fall back to the palette by index.
+  Visual visual;
 };
 
 struct RandomPlantConfig {

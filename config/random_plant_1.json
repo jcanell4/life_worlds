@@ -22,28 +22,30 @@
       "plant_types": [
         {
           "name": "herb",
-          "min_population": 5,
-          "max_population": 10,
+          "min_population": 100,
+          "max_population": 600,
           "stage_count": 5,
           "death_rate_by_stage": [0.002, 0.005, 0.012, 0.018, 0.045],
           "offspring_rate_by_stage": [0.00, 0.024, 0.046, 0.300, 0.085],
-          "time_units_by_stage": [1, 1, 2, 5, 2]
+          "time_units_by_stage": [1, 1, 2, 5, 2],
+          "visual": { "shape": "circle", "color": [72, 168, 74] }
         },
         {
           "name": "shrub",
-          "min_population": 5,
-          "max_population": 30,
+          "min_population": 100,
+          "max_population": 600,
           "stage_count": 6,
           "death_rate_by_stage": [0.001, 0.003, 0.008, 0.015, 0.030, 0.060],
           "offspring_rate_by_stage": [0.00, 0.012, 0.014, 0.055, 0.055, 0.015],
-          "time_units_by_stage": [1, 1, 1, 1, 2, 3]
+          "time_units_by_stage": [1, 1, 1, 1, 2, 3],
+          "visual": { "shape": "square", "color": "#2E5C3A" }
         }
       ]
     },
     {
       "type": "ql_agent",
       "mode": "eval",
-      "agent_count": 5,
+      "agent_count": 50,
       "energy_max": 100,
       "energy_drain": 1,
       "ingestion_factor": [2.0, 2.5],
@@ -51,7 +53,8 @@
       "gamma": 0.9,
       "epsilon": 0.1,
       "q_table_path": "config/ql_qtable.bin",
-      "reuse_q_table": true
+      "reuse_q_table": true,
+      "visual": { "shape": "triangle", "color": [200, 90, 40] }
     }
   ]
 }

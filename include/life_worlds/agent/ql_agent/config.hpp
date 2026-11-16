@@ -1,5 +1,6 @@
 #pragma once
 
+#include "life_worlds/core/components.hpp"
 #include "life_worlds/environment/grid/action.hpp"
 
 #include <array>
@@ -45,6 +46,8 @@ struct QlAgentConfig {
   std::string q_table_path = "config/ql_qtable.bin";
   // If true (or mode is eval), load q_table_path at startup when the file exists.
   bool reuse_q_table = false;
+  // Optional shape / color for every agent; unset parts use the orange triangle.
+  Visual visual;
 };
 
 }  // namespace ql_agent

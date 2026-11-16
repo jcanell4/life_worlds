@@ -2,7 +2,9 @@
 
 #include "life_worlds/agent/ql_agent/components.hpp"
 #include "life_worlds/core/components.hpp"
+#include "life_worlds/plant/components.hpp"
 #include "life_worlds/plant/random_plant/components.hpp"
+#include "life_worlds/plant/random_plant/residue.hpp"
 
 #include <algorithm>
 #include <array>
@@ -18,6 +20,9 @@ namespace life_worlds {
 namespace grid {
 namespace {
 
+// Named without the namespace because apply_action has locals called `plant`.
+using plant::PlantTypeIndex;
+
 constexpr std::array<std::pair<int, int>, kDirectionCount> kDelta{{
     {0, -1},
     {0, 1},
@@ -27,27 +32,6 @@ constexpr std::array<std::pair<int, int>, kDirectionCount> kDelta{{
 
 int clamp_energy(int value, int energy_max) {
   return std::clamp(value, 0, std::max(1, energy_max));
-}
-
-void leave_residue(entt::registry& registry, int x, int y,
-                   random_plant::PlantKind species,
-                   random_plant::ResidueKind kind) {
-  std::vector<entt::entity> to_destroy;
-  auto view = registry.view<const random_plant::PlantResidue, const Position>();
-  for (auto entity : view) {
-    const auto& pos = view.get<const Position>(entity);
-    if (pos.x == x && pos.y == y) {
-      to_destroy.push_back(entity);
-    }
-  }
-  for (auto entity : to_destroy) {
-    registry.destroy(entity);
-  }
-
-  const entt::entity residue = registry.create();
-  registry.emplace<random_plant::PlantResidue>(
-      residue, random_plant::PlantResidue{kind, species});
-  registry.emplace<Position>(residue, Position{x, y});
 }
 
 }  // namespace
@@ -168,12 +152,12 @@ ActionOutcome GridEnvironment::apply_action(entt::registry& registry,
       const entt::entity plant = adjacent_plant(registry, pos.x, pos.y);
       if (plant == entt::null ||
           !registry.all_of<random_plant::SpeciesName>(plant) ||
-          !registry.all_of<random_plant::PlantType, Position>(plant)) {
+          !registry.all_of<PlantTypeIndex, Position>(plant)) {
         break;
       }
       const std::string name =
           registry.get<random_plant::SpeciesName>(plant).name;
-      const auto species = registry.get<random_plant::PlantType>(plant).kind;
+      const auto species = registry.get<PlantTypeIndex>(plant).kind;
       const auto plant_pos = registry.get<Position>(plant);
       int delta = 0;
       if (name == "herb") {
@@ -190,9 +174,12 @@ ActionOutcome GridEnvironment::apply_action(entt::registry& registry,
       result.species_name = name;
       result.eaten = true;
       result.detail = "eat " + name;
+      const Visual plant_visual =
+          registry.all_of<Visual>(plant) ? registry.get<Visual>(plant) : Visual{};
       registry.destroy(plant);
-      leave_residue(registry, plant_pos.x, plant_pos.y, species,
-                    random_plant::ResidueKind::Eaten);
+      random_plant::leave_residue(registry, plant_pos.x, plant_pos.y, species,
+                                  random_plant::ResidueKind::Eaten,
+                                  plant_visual);
       std::ostringstream detail;
       detail << "ql id=" << static_cast<std::uint32_t>(agent) << " eat " << name
              << " energy=" << energy.value;
@@ -204,10 +191,10 @@ ActionOutcome GridEnvironment::apply_action(entt::registry& registry,
     case Action::Cut: {
       const entt::entity plant = adjacent_plant(registry, pos.x, pos.y);
       if (plant == entt::null ||
-          !registry.all_of<random_plant::PlantType, Position>(plant)) {
+          !registry.all_of<PlantTypeIndex, Position>(plant)) {
         break;
       }
-      const auto species = registry.get<random_plant::PlantType>(plant).kind;
+      const auto species = registry.get<PlantTypeIndex>(plant).kind;
       const auto plant_pos = registry.get<Position>(plant);
       result.species_name =
           registry.all_of<random_plant::SpeciesName>(plant)
@@ -215,9 +202,11 @@ ActionOutcome GridEnvironment::apply_action(entt::registry& registry,
               : "plant";
       result.cut = true;
       result.detail = "cut " + result.species_name;
+      const Visual plant_visual =
+          registry.all_of<Visual>(plant) ? registry.get<Visual>(plant) : Visual{};
       registry.destroy(plant);
-      leave_residue(registry, plant_pos.x, plant_pos.y, species,
-                    random_plant::ResidueKind::Cut);
+      random_plant::leave_residue(registry, plant_pos.x, plant_pos.y, species,
+                                  random_plant::ResidueKind::Cut, plant_visual);
       std::ostringstream detail;
       detail << "ql id=" << static_cast<std::uint32_t>(agent) << " cut "
              << result.species_name;

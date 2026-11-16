@@ -1,6 +1,7 @@
 #include "life_worlds/simulation/simulation.hpp"
 
 #include "life_worlds/config_loader.hpp"
+#include "life_worlds/core/events/tally.hpp"
 
 #include <raylib.h>
 
@@ -90,7 +91,8 @@ bool Simulation::init(const std::string& config_path) {
   return true;
 }
 
-// Run environment then every Entity once; accumulate births/deaths.
+// Run environment then every Entity once; tally births/deaths from the events
+// they emitted and accumulate the totals.
 const TickAccumulator& Simulation::step() {
   ++tick_index_;
   last_tick_.clear();
@@ -100,6 +102,7 @@ const TickAccumulator& Simulation::step() {
   for (auto& entity : entities_) {
     entity->step(ctx);
   }
+  events::tally_population(events_, last_tick_);
   total_births_ += last_tick_.births;
   total_deaths_ += last_tick_.deaths;
   log_tick(last_tick_);
@@ -202,7 +205,7 @@ void Simulation::run_visual() {
             << " fast_slice_s=" << fast_slice
             << " seed=" << config_.rng_seed << '\n';
   std::cout << "Close the window or press Esc to stop.\n";
-  std::cout << "F8 / F12 / Ctrl+P toggles fast training (skips world rendering).\n"
+  std::cout << "F8 / Ctrl+P toggles fast training (skips world rendering).\n"
             << std::flush;
 
   float accumulator = 0.0f;
@@ -216,7 +219,7 @@ void Simulation::run_visual() {
 
   // True while any fast-toggle chord is held (edge detection is separate).
   const auto toggle_chord_down = []() {
-    return IsKeyDown(KEY_F8) || IsKeyDown(KEY_F12) ||
+    return IsKeyDown(KEY_F8) ||
            ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) &&
             IsKeyDown(KEY_P));
   };
@@ -271,7 +274,7 @@ void Simulation::run_visual() {
             build_hud_tokens(tick_index_, last_tick_), hud_lines);
         BeginDrawing();
         ClearBackground(Color{24, 28, 24, 255});
-        DrawText("FAST TRAIN (F8 / F12 / Ctrl+P to restore view)", hud_pad_x,
+        DrawText("FAST TRAIN (F8 / Ctrl+P to restore view)", hud_pad_x,
                  world_h / 2, 20, Color{220, 230, 220, 255});
         DrawText(("tick " + std::to_string(tick_index_)).c_str(), hud_pad_x,
                  world_h / 2 + 28, 18, Color{180, 200, 180, 255});

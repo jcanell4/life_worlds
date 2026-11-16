@@ -1,6 +1,6 @@
 #pragma once
 
-#include "life_worlds/simulation/events/event.hpp"
+#include "life_worlds/core/events/event.hpp"
 
 #include <utility>
 #include <vector>

@@ -2,7 +2,7 @@
 
 #include "life_worlds/agent/ql_agent/q_table.hpp"
 #include "life_worlds/environment/grid/action.hpp"
-#include "life_worlds/simulation/events/event_queue.hpp"
+#include "life_worlds/core/events/event_queue.hpp"
 
 #include <entt/entt.hpp>
 

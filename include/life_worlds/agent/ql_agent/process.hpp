@@ -21,7 +21,15 @@ class QlAgentProcess final : public Entity {
   void shutdown() override;
 
   const QlAgentConfig& config() const { return config_; }
-  const std::vector<int>& episode_scores() const { return episode_scores_; }
+
+  // Eval snapshot of one agent, refreshed every step and printed on shutdown.
+  struct AgentScore {
+    std::string label;
+    int cycles = 0;       // cycles survived so far (final score if finished)
+    int energy = 0;       // energy left (0 if finished)
+    bool finished = false;  // energy ran out
+  };
+  const std::vector<AgentScore>& agent_scores() const { return agent_scores_; }
 
  private:
   void ensure_spawned(StepContext& ctx);
@@ -33,7 +41,7 @@ class QlAgentProcess final : public Entity {
   QTable q_table_;
   bool spawned_ = false;
   bool q_loaded_ = false;
-  std::vector<int> episode_scores_;
+  std::vector<AgentScore> agent_scores_;
   std::unordered_map<std::string, int> eaten_by_name_;
   std::unordered_map<std::string, int> cut_by_name_;
 };

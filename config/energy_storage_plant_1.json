@@ -1,0 +1,44 @@
+{
+  "tick_count": 0,
+  "rng_seed": 42,
+  "cell_size_px": 28,
+  "hud_height_px": 96,
+  "hud_lines": 4,
+  "ticks_per_second": 10.0,
+  "display_fps": 60,
+  "fast_display_fps": 5,
+  "fast_slice_seconds": 0.016,
+  "log_events": false,
+  "log_tick_summary": true,
+  "environment": {
+    "type": "grid",
+    "grid_size": 24
+  },
+  "entities": [
+    {
+      "type": "energy_storage_plant",
+      "plant_types": [
+        {
+          "name": "moss",
+          "initial_count": 3,
+          "initial_energy": 10.0,
+          "growing_rate": 5.0,
+          "maximum_energy_limit": 100.0,
+          "maximum_cell_occupancy": 12,
+          "split_fraction": 0.5,
+          "visual": { "shape": "hexagon", "color": [0, 150, 160] }
+        },
+        {
+          "name": "vine",
+          "initial_count": 2,
+          "initial_energy": 5.0,
+          "growing_rate": 3.0,
+          "maximum_energy_limit": 80.0,
+          "maximum_cell_occupancy": 20,
+          "split_fraction": 0.4,
+          "visual": { "shape": "diamond" }
+        }
+      ]
+    }
+  ]
+}

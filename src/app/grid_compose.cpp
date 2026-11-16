@@ -5,6 +5,8 @@
 #include "life_worlds/environment/grid/adapters.hpp"
 #include "life_worlds/environment/grid/environment.hpp"
 #include "life_worlds/environment/grid/layers.hpp"
+#include "life_worlds/plant/energy_storage_plant/config.hpp"
+#include "life_worlds/plant/energy_storage_plant/process.hpp"
 #include "life_worlds/plant/random_plant/config.hpp"
 #include "life_worlds/plant/random_plant/process.hpp"
 
@@ -12,6 +14,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
+#include <cstdint>
 #include <stdexcept>
 #include <utility>
 
@@ -50,9 +54,95 @@ std::array<int, random_plant::kMaxStages> read_int_stages(const json& arr,
   return out;
 }
 
+Shape parse_shape(const std::string& name) {
+  if (name == "circle") {
+    return Shape::Circle;
+  }
+  if (name == "square") {
+    return Shape::Square;
+  }
+  if (name == "triangle") {
+    return Shape::Triangle;
+  }
+  if (name == "diamond") {
+    return Shape::Diamond;
+  }
+  if (name == "hexagon") {
+    return Shape::Hexagon;
+  }
+  throw std::runtime_error(
+      "visual.shape must be circle, square, triangle, diamond or hexagon "
+      "(got \"" + name + "\")");
+}
+
+// Color as "#RRGGBB" / "#RRGGBBAA" or as an array [r, g, b] / [r, g, b, a].
+Rgba parse_color(const json& value) {
+  Rgba color;
+  if (value.is_string()) {
+    const std::string text = value.get<std::string>();
+    const bool shape_ok = (text.size() == 7 || text.size() == 9) &&
+                          text[0] == '#' &&
+                          std::all_of(text.begin() + 1, text.end(), [](char c) {
+                            return std::isxdigit(static_cast<unsigned char>(c));
+                          });
+    if (!shape_ok) {
+      throw std::runtime_error(
+          "visual.color string must look like \"#RRGGBB\" or \"#RRGGBBAA\" "
+          "(got \"" + text + "\")");
+    }
+    const auto byte_at = [&text](std::size_t pos) {
+      return static_cast<std::uint8_t>(
+          std::stoul(text.substr(pos, 2), nullptr, 16));
+    };
+    color.r = byte_at(1);
+    color.g = byte_at(3);
+    color.b = byte_at(5);
+    if (text.size() == 9) {
+      color.a = byte_at(7);
+    }
+    return color;
+  }
+  if (!value.is_array() || (value.size() != 3 && value.size() != 4)) {
+    throw std::runtime_error(
+        "visual.color must be \"#RRGGBB\" or an array [r, g, b] / [r, g, b, a]");
+  }
+  std::array<std::uint8_t, 4> channels{{0, 0, 0, 255}};
+  for (std::size_t i = 0; i < value.size(); ++i) {
+    if (!value.at(i).is_number_integer()) {
+      throw std::runtime_error("visual.color channels must be integers");
+    }
+    const int channel = value.at(i).get<int>();
+    if (channel < 0 || channel > 255) {
+      throw std::runtime_error("visual.color channels must be in [0, 255]");
+    }
+    channels[i] = static_cast<std::uint8_t>(channel);
+  }
+  return Rgba{channels[0], channels[1], channels[2], channels[3]};
+}
+
+// Optional "visual": { "shape": ..., "color": ... } block of a species/agent.
+Visual parse_visual(const json& owner) {
+  Visual visual;
+  if (!owner.contains("visual")) {
+    return visual;
+  }
+  const json& obj = owner.at("visual");
+  if (!obj.is_object()) {
+    throw std::runtime_error("visual must be an object");
+  }
+  if (obj.contains("shape")) {
+    visual.shape = parse_shape(obj.at("shape").get<std::string>());
+  }
+  if (obj.contains("color")) {
+    visual.color = parse_color(obj.at("color"));
+  }
+  return visual;
+}
+
 random_plant::PlantTypeConfig parse_plant_type(const json& obj) {
   random_plant::PlantTypeConfig type;
   type.name = obj.at("name").get<std::string>();
+  type.visual = parse_visual(obj);
   type.min_population = obj.value("min_population", 0);
   type.max_population = obj.value("max_population", 0);
   if (type.max_population < 0) {
@@ -89,13 +179,70 @@ random_plant::RandomPlantConfig parse_random_plant(const json& entity) {
     throw std::runtime_error("random_plant requires plant_types array");
   }
   for (const auto& entry : entity.at("plant_types")) {
-    if (config.plant_types.size() >= random_plant::kMaxPlantKinds) {
+    if (config.plant_types.size() >= plant::kMaxPlantKinds) {
       throw std::runtime_error("too many plant_types");
     }
     config.plant_types.push_back(parse_plant_type(entry));
   }
   if (config.plant_types.empty()) {
     throw std::runtime_error("random_plant plant_types must not be empty");
+  }
+  return config;
+}
+
+energy_storage_plant::PlantTypeConfig parse_energy_plant_type(
+    const json& obj) {
+  energy_storage_plant::PlantTypeConfig type;
+  type.name = obj.at("name").get<std::string>();
+  const std::string where = " for species: " + type.name;
+  type.initial_count = obj.value("initial_count", type.initial_count);
+  type.initial_energy = obj.value("initial_energy", type.initial_energy);
+  type.growing_rate = obj.value("growing_rate", type.growing_rate);
+  type.maximum_energy_limit =
+      obj.value("maximum_energy_limit", type.maximum_energy_limit);
+  type.maximum_cell_occupancy =
+      obj.value("maximum_cell_occupancy", type.maximum_cell_occupancy);
+  type.split_fraction = obj.value("split_fraction", type.split_fraction);
+  type.visual = parse_visual(obj);
+
+  if (type.initial_count < 0) {
+    throw std::runtime_error("initial_count must be >= 0" + where);
+  }
+  if (type.maximum_energy_limit <= 0.0) {
+    throw std::runtime_error("maximum_energy_limit must be > 0" + where);
+  }
+  if (type.initial_energy < 0.0 ||
+      type.initial_energy > type.maximum_energy_limit) {
+    throw std::runtime_error(
+        "initial_energy must be in [0, maximum_energy_limit]" + where);
+  }
+  if (type.growing_rate < 0.0) {
+    throw std::runtime_error("growing_rate must be >= 0" + where);
+  }
+  if (type.maximum_cell_occupancy < 1) {
+    throw std::runtime_error("maximum_cell_occupancy must be >= 1" + where);
+  }
+  if (type.split_fraction <= 0.0 || type.split_fraction >= 1.0) {
+    throw std::runtime_error("split_fraction must be in (0, 1)" + where);
+  }
+  return type;
+}
+
+energy_storage_plant::EnergyStoragePlantConfig parse_energy_storage_plant(
+    const json& entity) {
+  energy_storage_plant::EnergyStoragePlantConfig config;
+  if (!entity.contains("plant_types") || !entity.at("plant_types").is_array()) {
+    throw std::runtime_error("energy_storage_plant requires plant_types array");
+  }
+  for (const auto& entry : entity.at("plant_types")) {
+    if (config.plant_types.size() >= plant::kMaxPlantKinds) {
+      throw std::runtime_error("too many energy_storage_plant plant_types");
+    }
+    config.plant_types.push_back(parse_energy_plant_type(entry));
+  }
+  if (config.plant_types.empty()) {
+    throw std::runtime_error(
+        "energy_storage_plant plant_types must not be empty");
   }
   return config;
 }
@@ -133,6 +280,7 @@ ql_agent::QlAgentConfig parse_ql_agent(const json& entity) {
   config.max_vision = entity.value("max_vision", config.max_vision);
   config.q_table_path = entity.value("q_table_path", config.q_table_path);
   config.reuse_q_table = entity.value("reuse_q_table", config.reuse_q_table);
+  config.visual = parse_visual(entity);
   if (config.agent_count < 0) {
     throw std::runtime_error("ql_agent agent_count must be >= 0");
   }
@@ -172,6 +320,10 @@ void compose_grid_app(const json& root, LoadedConfig& loaded) {
       loaded.entities.push_back(
           std::make_unique<random_plant::RandomPlantProcess>(
               parse_random_plant(entity), occupancy));
+    } else if (type == "energy_storage_plant") {
+      loaded.entities.push_back(
+          std::make_unique<energy_storage_plant::EnergyStoragePlantProcess>(
+              parse_energy_storage_plant(entity), occupancy));
     } else if (type == "ql_agent") {
       loaded.entities.push_back(std::make_unique<ql_agent::QlAgentProcess>(
           parse_ql_agent(entity), agent_world));

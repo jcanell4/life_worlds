@@ -2,6 +2,7 @@
 
 #include "life_worlds/core/components.hpp"
 #include "life_worlds/plant/random_plant/components.hpp"
+#include "life_worlds/plant/random_plant/residue.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -15,23 +16,6 @@
 namespace life_worlds {
 namespace random_plant {
 namespace {
-
-struct BirthRecord {
-  entt::entity entity{};
-  PlantKind kind = 0;
-  int x = 0;
-  int y = 0;
-  entt::entity parent = entt::null;
-};
-
-struct DeathRecord {
-  entt::entity entity{};
-  PlantKind kind = 0;
-  int age_cycles = 0;
-  int age_stage = 0;
-  int x = 0;
-  int y = 0;
-};
 
 // Valid stage_count clamped to [0, kMaxStages].
 int stage_count_of(const PlantTypeConfig& type) {
@@ -71,30 +55,18 @@ Fertility inherit_fertility(const Fertility& parent, int stage_count,
   return child;
 }
 
-// Remove any eaten/cut residue markers on cell (x, y) before a live spawn.
-void clear_residue_at(entt::registry& registry, int x, int y) {
-  std::vector<entt::entity> to_destroy;
-  auto view = registry.view<const PlantResidue, const Position>();
-  for (auto entity : view) {
-    const auto& pos = view.get<const Position>(entity);
-    if (pos.x == x && pos.y == y) {
-      to_destroy.push_back(entity);
-    }
-  }
-  for (auto entity : to_destroy) {
-    registry.destroy(entity);
-  }
-}
-
 // Create a living plant entity at (x, y) with age 0 and the given fertility.
+// Any eaten/cut residue on the cell is removed first.
 entt::entity spawn_plant(entt::registry& registry, PlantKind kind,
-                         const std::string& species_name, int x, int y,
+                         const std::string& species_name,
+                         const Visual& visual, int x, int y,
                          const Fertility& fertility) {
   clear_residue_at(registry, x, y);
   const entt::entity entity = registry.create();
   registry.emplace<Plant>(entity);
-  registry.emplace<PlantType>(entity, PlantType{kind});
+  registry.emplace<plant::PlantTypeIndex>(entity, plant::PlantTypeIndex{kind});
   registry.emplace<SpeciesName>(entity, SpeciesName{species_name});
+  registry.emplace<Visual>(entity, visual);
   registry.emplace<Position>(entity, Position{x, y});
   registry.emplace<Age>(entity, Age{0});
   registry.emplace<Fertility>(entity, fertility);
@@ -109,32 +81,17 @@ void age_plants(entt::registry& registry) {
   }
 }
 
-// Living population count indexed by PlantKind.
-std::vector<int> count_alive_by_kind(const entt::registry& registry,
-                                     std::size_t kind_count) {
-  std::vector<int> alive(kind_count, 0);
-  auto view = registry.view<const Plant, const PlantType>();
-  for (auto entity : view) {
-    const auto kind = view.get<const PlantType>(entity).kind;
-    if (static_cast<std::size_t>(kind) < kind_count) {
-      ++alive[static_cast<std::size_t>(kind)];
-    }
-  }
-  return alive;
-}
-
-// Sample stage death rates and destroy plants that die this cycle.
-std::vector<DeathRecord> kill_plants(entt::registry& registry,
-                                     const RandomPlantConfig& config,
-                                     int cycles_per_time_unit,
-                                     std::mt19937& rng) {
-  std::vector<DeathRecord> events;
+// Sample stage death rates, destroy plants that die this cycle and emit a
+// Death event for each.
+void kill_plants(entt::registry& registry, const RandomPlantConfig& config,
+                 int cycles_per_time_unit, std::mt19937& rng,
+                 events::EventQueue& event_queue) {
   std::vector<entt::entity> to_destroy;
 
-  auto view = registry.view<Plant, PlantType, Age, Position>();
+  auto view = registry.view<Plant, plant::PlantTypeIndex, Age, Position>();
   for (auto entity : view) {
-    const auto& type_comp = view.get<PlantType>(entity);
-    const auto kind_index = static_cast<std::size_t>(type_comp.kind);
+    const auto kind_index =
+        static_cast<std::size_t>(view.get<plant::PlantTypeIndex>(entity).kind);
     if (kind_index >= config.plant_types.size()) {
       continue;
     }
@@ -145,8 +102,8 @@ std::vector<DeathRecord> kill_plants(entt::registry& registry,
     const double rate = death_rate_for_stage(type, stage);
     std::bernoulli_distribution dies(rate);
     if (dies(rng)) {
-      events.push_back(
-          DeathRecord{entity, type_comp.kind, age.cycles, stage, pos.x, pos.y});
+      event_queue.emit(events::Event::death(entity, type.name, pos.x, pos.y,
+                                            age.cycles, stage));
       to_destroy.push_back(entity);
     }
   }
@@ -154,31 +111,28 @@ std::vector<DeathRecord> kill_plants(entt::registry& registry,
   for (auto entity : to_destroy) {
     registry.destroy(entity);
   }
-  return events;
 }
 
 // Sample fertility, place offspring on free cells, respect max_population.
-std::vector<BirthRecord> reproduce_plants(entt::registry& registry,
-                                          const RandomPlantConfig& config,
-                                          int cycles_per_time_unit,
-                                          const OccupancyPort& occupancy,
-                                          std::mt19937& rng) {
+// Emits a Birth event for each offspring.
+void reproduce_plants(entt::registry& registry, const RandomPlantConfig& config,
+                      int cycles_per_time_unit, const OccupancyPort& occupancy,
+                      std::mt19937& rng, events::EventQueue& event_queue) {
   struct Pending {
     entt::entity parent;
     PlantKind kind;
     Fertility fertility;
   };
 
-  std::vector<BirthRecord> events;
   auto free = occupancy.free_cells(registry);
   if (free.empty()) {
-    return events;
+    return;
   }
 
   std::vector<Pending> pending;
-  auto view = registry.view<Plant, PlantType, Age, Fertility>();
+  auto view = registry.view<Plant, plant::PlantTypeIndex, Age, Fertility>();
   for (auto entity : view) {
-    const auto kind = view.get<PlantType>(entity).kind;
+    const auto kind = view.get<plant::PlantTypeIndex>(entity).kind;
     const auto kind_index = static_cast<std::size_t>(kind);
     if (kind_index >= config.plant_types.size()) {
       continue;
@@ -199,8 +153,8 @@ std::vector<BirthRecord> reproduce_plants(entt::registry& registry,
     pending.resize(free.size());
   }
 
-  auto projected = count_alive_by_kind(registry, config.plant_types.size());
-  events.reserve(pending.size());
+  auto projected =
+      plant::count_alive_by_kind<Plant>(registry, config.plant_types.size());
 
   for (const auto& parent : pending) {
     if (free.empty()) {
@@ -220,28 +174,27 @@ std::vector<BirthRecord> reproduce_plants(entt::registry& registry,
     free.pop_back();
 
     const entt::entity child = spawn_plant(
-        registry, parent.kind, type.name, cell.first, cell.second,
+        registry, parent.kind, type.name, type.visual, cell.first, cell.second,
         inherit_fertility(parent.fertility, stage_count_of(type),
                           config.offspring_inheritance_jitter, rng));
     ++projected[kind_index];
-    events.push_back(
-        BirthRecord{child, parent.kind, cell.first, cell.second, parent.parent});
+    event_queue.emit(events::Event::birth(child, parent.parent, type.name,
+                                          cell.first, cell.second));
   }
-  return events;
 }
 
 // Top up each species to min_population by spawning on free cells.
-std::vector<BirthRecord> seed_plants(entt::registry& registry,
-                                     const RandomPlantConfig& config,
-                                     const OccupancyPort& occupancy,
-                                     std::mt19937& rng) {
-  std::vector<BirthRecord> events;
+// Emits a Birth event (without parent) for each seeded plant.
+void seed_plants(entt::registry& registry, const RandomPlantConfig& config,
+                 const OccupancyPort& occupancy, std::mt19937& rng,
+                 events::EventQueue& event_queue) {
   auto free = occupancy.free_cells(registry);
   if (free.empty() || config.plant_types.empty()) {
-    return events;
+    return;
   }
 
-  const auto alive = count_alive_by_kind(registry, config.plant_types.size());
+  const auto alive =
+      plant::count_alive_by_kind<Plant>(registry, config.plant_types.size());
   std::vector<PlantKind> to_seed;
   for (std::size_t i = 0; i < config.plant_types.size(); ++i) {
     const auto& type = config.plant_types[i];
@@ -259,7 +212,6 @@ std::vector<BirthRecord> seed_plants(entt::registry& registry,
     std::shuffle(to_seed.begin(), to_seed.end(), rng);
     to_seed.resize(free.size());
   }
-  events.reserve(to_seed.size());
 
   for (const PlantKind kind : to_seed) {
     std::uniform_int_distribution<std::size_t> pick(0, free.size() - 1);
@@ -270,63 +222,10 @@ std::vector<BirthRecord> seed_plants(entt::registry& registry,
 
     const auto& type = config.plant_types[static_cast<std::size_t>(kind)];
     const entt::entity entity =
-        spawn_plant(registry, kind, type.name, cell.first, cell.second,
-                    default_fertility(type));
-    events.push_back(BirthRecord{entity, kind, cell.first, cell.second});
-  }
-  return events;
-}
-
-// Write plant birth/death/alive metrics and emit typed events.
-void fill_tick(TickAccumulator& tick, events::EventQueue& event_queue,
-               const RandomPlantConfig& config,
-               const std::vector<BirthRecord>& births,
-               const std::vector<DeathRecord>& deaths,
-               const std::vector<int>& alive) {
-  const std::size_t n = config.plant_types.size();
-  std::vector<int> births_by(n, 0);
-  std::vector<int> deaths_by(n, 0);
-
-  for (const auto& event : births) {
-    const auto i = static_cast<std::size_t>(event.kind);
-    if (i < n) {
-      ++births_by[i];
-    }
-  }
-  for (const auto& event : deaths) {
-    const auto i = static_cast<std::size_t>(event.kind);
-    if (i < n) {
-      ++deaths_by[i];
-    }
-  }
-
-  tick.births += static_cast<int>(births.size());
-  tick.deaths += static_cast<int>(deaths.size());
-
-  for (std::size_t i = 0; i < n; ++i) {
-    const std::string& name = config.plant_types[i].name;
-    tick.alive_by_name.push_back(NamedCount{name, alive[i]});
-    if (births_by[i] != 0) {
-      tick.births_by_name.push_back(NamedCount{name, births_by[i]});
-    }
-    if (deaths_by[i] != 0) {
-      tick.deaths_by_name.push_back(NamedCount{name, deaths_by[i]});
-    }
-  }
-
-  for (const auto& event : births) {
-    const auto i = static_cast<std::size_t>(event.kind);
-    const std::string name = i < n ? config.plant_types[i].name : "?";
-    event_queue.emit(events::Event{events::EventKind::Birth, event.entity,
-                                   event.parent, name, event.x, event.y, 0, {}});
-  }
-  for (const auto& event : deaths) {
-    const auto i = static_cast<std::size_t>(event.kind);
-    const std::string name = i < n ? config.plant_types[i].name : "?";
-    event_queue.emit(events::Event{events::EventKind::Death, event.entity,
-                                   entt::null, name, event.x, event.y,
-                                   event.age_cycles,
-                                   std::to_string(event.age_stage)});
+        spawn_plant(registry, kind, type.name, type.visual, cell.first,
+                    cell.second, default_fertility(type));
+    event_queue.emit(events::Event::birth(entity, entt::null, type.name,
+                                          cell.first, cell.second));
   }
 }
 
@@ -342,20 +241,17 @@ RandomPlantProcess::RandomPlantProcess(RandomPlantConfig config,
 }
 
 // One lifecycle tick: age → stochastic death → reproduction → min seeding.
+// Births and deaths are reported as events; the simulation tallies them.
 void RandomPlantProcess::step(StepContext& ctx) {
+  const int cycles_per_time_unit = ctx.simulation.cycles_per_time_unit;
   age_plants(ctx.registry);
-  const auto deaths = kill_plants(ctx.registry, config_,
-                                  ctx.simulation.cycles_per_time_unit, ctx.rng);
-  auto births = reproduce_plants(ctx.registry, config_,
-                                 ctx.simulation.cycles_per_time_unit,
-                                 occupancy_, ctx.rng);
-  const auto seeded =
-      seed_plants(ctx.registry, config_, occupancy_, ctx.rng);
-  births.insert(births.end(), seeded.begin(), seeded.end());
+  kill_plants(ctx.registry, config_, cycles_per_time_unit, ctx.rng, ctx.events);
+  reproduce_plants(ctx.registry, config_, cycles_per_time_unit, occupancy_,
+                   ctx.rng, ctx.events);
+  seed_plants(ctx.registry, config_, occupancy_, ctx.rng, ctx.events);
 
-  const auto alive =
-      count_alive_by_kind(ctx.registry, config_.plant_types.size());
-  fill_tick(ctx.tick, ctx.events, config_, births, deaths, alive);
+  plant::publish_alive_by_name<Plant>(ctx.registry, config_.plant_types,
+                                      ctx.tick);
 }
 
 }  // namespace random_plant

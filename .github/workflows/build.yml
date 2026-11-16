@@ -87,7 +87,7 @@ jobs:
       - name: Smoke (console)
         shell: bash
         run: |
-          "${{ steps.binary.outputs.path }}" --console --config config/default.json
+          "${{ steps.binary.outputs.path }}" --console --config config/random_plant_1.json
 
       - name: Stage artifact
         shell: bash
@@ -95,7 +95,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp "${{ steps.binary.outputs.path }}" dist/
-          cp config/default.json dist/
+          cp config/random_plant_1.json dist/
           # Optional Q-table if present in the checkout (gitignored locally).
           if [[ -f config/ql_qtable.bin ]]; then
             cp config/ql_qtable.bin dist/

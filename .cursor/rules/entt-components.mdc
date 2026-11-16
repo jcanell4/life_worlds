@@ -1,0 +1,36 @@
+---
+description: Structs used as EnTT components are always defined in a components.hpp header
+alwaysApply: true
+---
+
+# EnTT components live in components.hpp
+
+Any struct stored in the registry (`emplace<T>`, `view<T>`, `get<T>`, `try_get<T>`, `all_of<T>`, ...) is defined in a `components.hpp`. Never in a `.cpp`, a `config.hpp`, a `visual.hpp`, or any other header.
+
+Pick the narrowest level that covers every user of the component:
+
+- `core/components.hpp` — used by more than one kind of module (`Position`, `Age`, `Visual`).
+- `plant/components.hpp` — shared by the plant modules (`plant::PlantTypeIndex`).
+- `<module>/components.hpp` — owned by one module (`random_plant::Fertility`, `energy_storage_plant::Lineage`, `ql_agent::Energy`).
+
+## Rules
+
+- Before adding a component, look in all three levels for one with the same fields. If two modules need the same data, define it once at the shared level and use it from both.
+- Marker tags stay one per module (`random_plant::Plant`, `energy_storage_plant::EnergyPlant`). A view over a shared component must include the module's marker, otherwise it also matches other modules' entities.
+- Enums and aliases a component needs may sit next to it (`plant::PlantKind`, `random_plant::ResidueKind`).
+- Code that creates or destroys a component's entities belongs to the module that owns the component, and other modules call it. Example: `random_plant/residue.hpp` owns `PlantResidue` entities; the grid calls `random_plant::leave_residue`.
+
+## Example
+
+```cpp
+// BAD: the same component defined once per module
+namespace random_plant { struct PlantType { PlantKind kind; }; }
+namespace energy_storage_plant { struct PlantTypeIndex { PlantKind kind; }; }
+
+// GOOD: defined once in plant/components.hpp, filtered by the module marker
+auto view = registry.view<const random_plant::Plant, const plant::PlantTypeIndex>();
+```
+
+## When planning
+
+List every component the change adds or moves and the `components.hpp` it goes in.

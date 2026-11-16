@@ -3,7 +3,7 @@
 
 # life_worlds
 
-ECS simulation in C++ with [EnTT](https://github.com/skypjack/entt) and visualization with [raylib](https://www.raylib.com/): an N×N world with configurable modules (`random_plant`, `ql_agent`) decoupled from the grid via **ports** and **adapters**, and drawn with **render layers** registered in the composition root.
+ECS simulation in C++ with [EnTT](https://github.com/skypjack/entt) and visualization with [raylib](https://www.raylib.com/): an N×N world with configurable modules (`random_plant`, `energy_storage_plant`, `ql_agent`) decoupled from the grid via **ports** and **adapters**, and drawn with **render layers** registered in the composition root.
 
 ## Requirements
 
@@ -49,7 +49,7 @@ cmake --preset darwin && cmake --build --preset darwin   # macOS
 cmake --preset linux && cmake --build --preset linux     # Linux
 ```
 
-CI: GitHub Actions (`.github/workflows/build.yml`) builds on Linux, macOS, and Windows (raylib/EnTT/json via FetchContent), runs a `--console` smoke test, and uploads **artifacts** (`life_worlds-linux` / `-macos` / `-windows`) with the binary and `config/default.json`. Download them under **Actions** → run → Artifacts (retained 14 days).
+CI: GitHub Actions (`.github/workflows/build.yml`) builds on Linux, macOS, and Windows (raylib/EnTT/json via FetchContent), runs a `--console` smoke test, and uploads **artifacts** (`life_worlds-linux` / `-macos` / `-windows`) with the binary and `config/random_plant_1.json`. Download them under **Actions** → run → Artifacts (retained 14 days).
 
 ## Run
 
@@ -73,10 +73,10 @@ LIFE_WORLDS_HEADLESS=1 ./build/linux/life_worlds
 Alternate config:
 
 ```bash
-./build/linux/life_worlds --config config/default.json --console
+./build/linux/life_worlds --config config/random_plant_1.json --console
 ```
 
-In the window: empty cells are light green; each species is drawn with a palette color by index (circle if the index is even, square if odd); QL agents are orange triangles. The bottom bar shows tick and counters. **F8**, **F12**, or **Ctrl+P** toggles fast mode (skips drawing the world; prefer **F8**, because raylib uses F12 for screenshots).
+In the window: empty cells are light green; each species is drawn with a palette color by index (circle if the index is even, square if odd) and QL agents are orange triangles, unless the config sets a [`visual`](#look-of-plants-and-agents-visual) for them. The bottom bar shows tick and counters. **F8** or **Ctrl+P** toggles fast mode (skips drawing the world).
 
 ## Architecture (ports and plugins)
 
@@ -84,10 +84,11 @@ In the window: empty cells are light green; each species is drawn with a palette
 - **Grid adapters** (`environment/grid/adapters`): implement the ports by delegating to `GridEnvironment`.
 - **Render layers** (`environment/grid/layers`): visual plugins (`draw_grid`, residues, plants, QL agents) registered with `Environment::add_render_layer`.
 - **Composition root** (`app/grid_compose`): `compose_grid_app` creates the grid, wires ports + layers, and builds each `Entity` with injected ports. Plant/QL processes **do not** know about `GridEnvironment`.
+- **Events** (`core/events`): modules report what happens by emitting a typed `events::Event` (birth, death, eat, cut…) where it happens; the simulation tallies births and deaths once per tick from those events.
 
 ## Configuration (JSON)
 
-Edit [`config/default.json`](config/default.json). `load_config` parses the simulation settings and calls `compose_grid_app`, which creates the `environment`, registers draw layers, and one `Entity` per `entities` entry (order = `step` order).
+Edit [`config/random_plant_1.json`](config/random_plant_1.json). `load_config` parses the simulation settings and calls `compose_grid_app`, which creates the `environment`, registers draw layers, and one `Entity` per `entities` entry (order = `step` order).
 
 ### Simulation (root)
 
@@ -115,6 +116,21 @@ Edit [`config/default.json`](config/default.json). `load_config` parses the simu
 | `type` | `"grid"` |
 | `grid_size` | N of the N×N grid |
 
+### Look of plants and agents (`visual`)
+
+Each plant species (`random_plant`, `energy_storage_plant`) and each `ql_agent` entity accepts an optional compound attribute `visual`. Both fields are optional; whatever is missing keeps the default look.
+
+```json
+"visual": { "shape": "circle", "color": [72, 168, 74] }
+```
+
+| Field | Values | Default |
+|-------|--------|---------|
+| `shape` | `"circle"`, `"square"`, `"triangle"`, `"diamond"`, `"hexagon"` | `random_plant`: circle if the species index is even, square if odd; `energy_storage_plant`: hexagon; `ql_agent`: triangle |
+| `color` | `[r, g, b]` or `[r, g, b, a]` (0-255), or a string `"#RRGGBB"` / `"#RRGGBBAA"` | `random_plant`: palette by species index; `energy_storage_plant`: one color per lineage; `ql_agent`: orange |
+
+Notes: a plant eaten or cut leaves a residue with the **shape** of its species (gray = eaten, brown = cut, whatever the species color). On `energy_storage_plant` the brightness always follows the stored energy; setting `color` makes every lineage of that species share it.
+
 ### Entity `random_plant`
 
 | Parameter | Description |
@@ -128,6 +144,29 @@ Edit [`config/default.json`](config/default.json). `load_config` parses the simu
 | `plant_types[].time_units_by_stage` | Duration of each stage in time units (`<= 0` → 1) |
 | `plant_types[].death_rate_by_stage` | Death probability per stage |
 | `plant_types[].offspring_rate_by_stage` | Offspring probability per stage (initial value) |
+| `plant_types[].visual` | Optional `{ shape, color }`, see [Look of plants and agents](#look-of-plants-and-agents-visual) |
+
+### Entity `energy_storage_plant`
+
+Plants that accumulate energy every cycle and split into an adjacent free cell when full. Example config: [`config/energy_storage_plant_1.json`](config/energy_storage_plant_1.json) (`--config config/energy_storage_plant_1.json`).
+
+- Each cycle a plant gains `growing_rate` energy, up to `maximum_energy_limit`. With no free orthogonal neighbour cell it does not grow or accumulate energy (it resumes if a neighbour frees up).
+- At maximum energy it creates a new plant (same species) in a free adjacent cell: the child receives `split_fraction` of the parent's energy and the parent keeps the rest.
+- **Lineage**: every initial plant starts a lineage and its descendants share it (same colour in the window; brightness follows stored energy; hexagons by default, configurable with `visual`). A lineage cannot occupy more than `maximum_cell_occupancy` cells: once reached, its plants keep filling up to the energy maximum and then stop growing.
+- Several species are defined like `random_plant`, each with its `name`. No spontaneous death.
+- **Phase 1:** it does not interact with other entities. `random_plant` and `ql_agent` ignore these plants, so do not combine them in the same config yet (they could overlap in a cell).
+
+| Parameter | Description |
+|-----------|-------------|
+| `type` | Must be `"energy_storage_plant"` |
+| `plant_types[].name` | Species name |
+| `plant_types[].initial_count` | Initial plants (each one a new lineage) |
+| `plant_types[].initial_energy` | Starting energy of each initial plant (`0` ≤ value ≤ `maximum_energy_limit`) |
+| `plant_types[].growing_rate` | Energy added per cycle (`>= 0`) |
+| `plant_types[].maximum_energy_limit` | Energy cap of every plant (`> 0`) |
+| `plant_types[].maximum_cell_occupancy` | Max cells per lineage (`>= 1`) |
+| `plant_types[].split_fraction` | Fraction of the parent's energy given to the new plant (`0 < value < 1`, default `0.5`) |
+| `plant_types[].visual` | Optional `{ shape, color }` |
 
 ### Entity `ql_agent` (tabular Q-learning)
 
@@ -140,7 +179,7 @@ After Eat/Cut a residue remains in the cell (**gray** = eaten, **brown** = cut) 
 | Parameter | Description |
 |-----------|-------------|
 | `type` | `"ql_agent"` |
-| `mode` | `"train"` (ε-greedy + Q update; energy 0 → reset) or `"eval"` (greedy; energy 0 → score and inactive) |
+| `mode` | `"train"` (ε-greedy + Q update; energy 0 → reset) or `"eval"` (greedy; energy 0 → score and inactive; on exit it prints the score — cycles survived — of every agent, and the energy left for those still alive) |
 | `agent_count` | Number of agents to spawn |
 | `energy_max` / `energy_drain` | Max energy and per-cycle drain (default 100 / 5) |
 | `herb_energy_delta` / `shrub_energy_delta` | Energy change (and eat reward) on Eat |
@@ -149,18 +188,21 @@ After Eat/Cut a residue remains in the cell (**gray** = eaten, **brown** = cut) 
 | `max_vision` | Distance cap (`0` = `grid_size`) |
 | `q_table_path` | Binary Q-table file (saved on train shutdown; loaded in eval or if `reuse_q_table`) |
 | `reuse_q_table` | In `train`, if `true` loads the existing table and continues learning; if `false` starts from scratch |
+| `visual` | Optional `{ shape, color }` for every agent of this entity |
 
 Per-cycle rewards (energy band, after drain/eat): `>75%` → +2; `(50,75%]` → −2; `(25,50%]` → −3; `[0,25%]` → −5. The eat reward is the energy delta of the Eat action.
 
 ## Structure
 
 - `ports/` — `OccupancyPort`, `AgentWorldPort` (grid-free contracts)
-- `core/` — `Position`/`Age`, `StepContext`, tick metrics
+- `core/` — shared components (`Position`, `Age`, `Visual`), `StepContext`, tick metrics, `events/` (typed events shared by all modules + birth/death tally)
 - `entity/` — `Entity` interface
 - `environment/` — `Environment` interface (`add_render_layer`) + `grid/` (queries, `apply_action`, `adapters/`, `layers/`)
-- `plant/random_plant/` — population dynamics + visual traits (occupancy via port)
+- `plant/components.hpp`, `plant/common.hpp` — component (`PlantTypeIndex`) and helpers (alive counts) shared by the plant modules
+- `plant/random_plant/` — population dynamics + visual traits (occupancy via port), residues of eaten/cut plants (`residue`)
+- `plant/energy_storage_plant/` — energy-storing plants with lineages and a per-lineage cell cap
 - `agent/ql_agent/` — Q-learning (chooses actions; senses/acts via port)
 - `app/` — grid composition root (`compose_grid_app`: ports + layers + entities)
-- `simulation/` — orchestration, display config, `events/`
+- `simulation/` — orchestration, display config
 - `config_loader.cpp` — simulation JSON + call to `compose_grid_app`
 - `main.cpp` — `--config`, `--console` / visual by default

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "life_worlds/core/events/event_queue.hpp"
 #include "life_worlds/core/tick.hpp"
 #include "life_worlds/simulation/config.hpp"
-#include "life_worlds/simulation/events/event_queue.hpp"
 
 #include <entt/entt.hpp>
 

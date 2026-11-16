@@ -1,0 +1,39 @@
+---
+description: Reuse shared types and helpers instead of duplicating them across modules
+alwaysApply: true
+---
+
+# No duplication across modules
+
+Before adding a struct, constant, or helper to an entity module (`plant/*`, `agent/*`):
+
+1. Search `include/life_worlds/` and `src/` for an equivalent, by field shape and behaviour, not only by name.
+2. If one exists in another module, move it to a shared location and use it from both. Never copy it.
+3. If it is private to one module (anonymous namespace in a `.cpp`) and a second module needs it, promote it to a shared header.
+
+## Shared locations
+
+- `core/` — components and value types used by more than one module (`Position`, `Age`, `Visual`, `TickAccumulator`).
+- `core/events/` — anything that reports "something happened". Modules emit `events::Event` directly where it happens (`Event::birth`, `Event::death`); they do not define private record structs that mirror it, and they do not count events themselves (`events::tally_population` does it once per tick in `Simulation::step`).
+- `ports/` — what a module needs from the world.
+- `plant/components.hpp` — components shared by plant modules only (`plant::PlantTypeIndex`, with its `plant::PlantKind`). See the `entt-components` rule.
+- `plant/common.hpp` — constants and helpers shared by plant modules only (`plant::kMaxPlantKinds`, `plant::count_alive_by_kind`, `plant::publish_alive_by_name`).
+- `<module>/<topic>.hpp` — logic over a module's own components that other modules also need (`random_plant/residue.hpp`: `clear_residue_at`, `leave_residue`).
+
+A new kind of event gets a factory on `events::Event`, next to `to_string`, so the meaning of `value` / `detail` is defined in one place.
+
+## Example
+
+```cpp
+// BAD: private record that mirrors events::Event, translated and counted later
+struct BirthRecord { entt::entity entity; PlantKind kind; int x; int y; };
+std::vector<BirthRecord> births = reproduce(registry);
+fill_tick(tick, event_queue, births);
+
+// GOOD: emit the shared event where the birth happens
+event_queue.emit(events::Event::birth(child, parent, type.name, x, y));
+```
+
+## When planning
+
+List every new type, constant, or helper the change introduces and state which existing one was considered and why it does not fit.

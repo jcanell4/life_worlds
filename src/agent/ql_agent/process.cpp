@@ -119,6 +119,7 @@ void QlAgentProcess::ensure_spawned(StepContext& ctx) {
     ctx.registry.emplace<Position>(entity, Position{cell.first, cell.second});
     ctx.registry.emplace<Energy>(entity, Energy{config_.energy_max});
     ctx.registry.emplace<EpisodeCycles>(entity, EpisodeCycles{0});
+    ctx.registry.emplace<Visual>(entity, config_.visual);
   }
   spawned_ = true;
 }
@@ -135,6 +136,9 @@ void QlAgentProcess::step(StepContext& ctx) {
   {
     auto view = ctx.registry.view<QlAgent>();
     agents.assign(view.begin(), view.end());
+  }
+  if (config_.mode == Mode::Eval && agent_scores_.size() < agents.size()) {
+    agent_scores_.resize(agents.size());
   }
 
   const grid::EatParams eat_params{
@@ -212,7 +216,8 @@ void QlAgentProcess::step(StepContext& ctx) {
         ctx.tick.energy_by_agent.push_back(
             NamedCount{agent_label, ctx.registry.get<Energy>(agent).value});
       } else {
-        episode_scores_.push_back(episode.value);
+        agent_scores_[static_cast<std::size_t>(agent_index)] =
+            AgentScore{agent_label, episode.value, 0, true};
         ctx.registry.emplace_or_replace<Inactive>(agent);
         ctx.tick.energy_by_agent.push_back(NamedCount{agent_label, 0});
         std::ostringstream detail;
@@ -223,6 +228,10 @@ void QlAgentProcess::step(StepContext& ctx) {
       }
     } else {
       ++alive;
+      if (config_.mode == Mode::Eval) {
+        agent_scores_[static_cast<std::size_t>(agent_index)] =
+            AgentScore{agent_label, episode.value, energy.value, false};
+      }
       ctx.tick.energy_by_agent.push_back(NamedCount{agent_label, energy.value});
     }
     ++agent_index;
@@ -232,7 +241,8 @@ void QlAgentProcess::step(StepContext& ctx) {
   publish_harvest_stats(ctx.tick);
 }
 
-// End of run: save Q-table in train mode and print scores / harvest totals.
+// End of run: save Q-table in train mode; in eval print every agent's score;
+// print harvest totals.
 void QlAgentProcess::shutdown() {
   if (config_.mode == Mode::Train && !config_.q_table_path.empty()) {
     if (q_table_.save(config_.q_table_path)) {
@@ -243,12 +253,21 @@ void QlAgentProcess::shutdown() {
                 << config_.q_table_path << '\n';
     }
   }
-  if (!episode_scores_.empty()) {
-    std::cout << "ql_agent: episode scores:";
-    for (int score : episode_scores_) {
-      std::cout << ' ' << score;
+  if (config_.mode == Mode::Eval && !agent_scores_.empty()) {
+    // Every agent: final score if it died, cycles so far (+ energy left) if it
+    // was still alive when the run ended.
+    std::cout << "ql_agent: eval scores (cycles survived)\n";
+    const int energy_max = std::max(1, config_.energy_max);
+    for (const AgentScore& score : agent_scores_) {
+      std::cout << "  " << score.label << ": " << score.cycles;
+      if (score.finished) {
+        std::cout << " (died)\n";
+      } else {
+        const int percent = score.energy * 100 / energy_max;
+        std::cout << " (alive - " << percent << "%, energy " << score.energy
+                  << "/" << energy_max << ")\n";
+      }
     }
-    std::cout << '\n';
   }
   if (!eaten_by_name_.empty() || !cut_by_name_.empty()) {
     std::cout << "ql_agent: harvest";
