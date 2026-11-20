@@ -22,8 +22,8 @@
       "plant_types": [
         {
           "name": "herb",
-          "min_population": 30,
-          "max_population": 100,
+          "min_population": 8,
+          "max_population": 30,
           "stage_count": 5,
           "death_rate_by_stage": [
             0.002,
@@ -57,8 +57,8 @@
         },
         {
           "name": "shrub",
-          "min_population": 50,
-          "max_population": 300,
+          "min_population": 8,
+          "max_population": 80,
           "stage_count": 6,
           "death_rate_by_stage": [
             0.001,
@@ -95,7 +95,7 @@
       "type": "dqn_agent",
       "mode": "train",
       "vision_rays": 8,
-      "agent_count": 20,
+      "agent_count": 8,
       "energy_max": 100,
       "energy_drain": 1,
       "ingestion_factor": [

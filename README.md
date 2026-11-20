@@ -122,10 +122,12 @@ Console / headless mode (no window):
 LIFE_WORLDS_HEADLESS=1 ./build/linux/life_worlds
 ```
 
-Alternate config:
+With no `--config`, the binary loads [`config/default.json`](config/default.json). Other scenarios:
 
 ```bash
 ./build/linux/life_worlds --config config/random_plant_ql_1.json --console
+./build/linux/life_worlds --config config/random_plant_c51_1.json --console
+./build/linux/life_worlds --config config/random_plant_dqn_1.json --console
 ```
 
 In the window: empty cells are light green; each species is drawn with a palette color by index (circle if the index is even, square if odd) and QL agents are orange triangles, unless the config sets a [`visual`](#look-of-plants-and-agents-visual) for them. The bottom bar shows tick and counters. **F8** or **Ctrl+P** toggles fast mode (skips drawing the world).
@@ -140,7 +142,7 @@ In the window: empty cells are light green; each species is drawn with a palette
 
 ## Configuration (JSON)
 
-Edit [`config/random_plant_ql_1.json`](config/random_plant_ql_1.json). `load_config` parses the simulation settings and calls `compose_grid_app`, which creates the `environment`, registers draw layers, and one `Entity` per `entities` entry (order = `step` order).
+Edit [`config/default.json`](config/default.json) (used when `--config` is omitted), or any scenario under `config/`. `load_config` parses the simulation settings and calls `compose_grid_app`, which creates the `environment`, registers draw layers, and one `Entity` per `entities` entry (order = `step` order).
 
 ### Simulation (root)
 

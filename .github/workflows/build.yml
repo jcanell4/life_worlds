@@ -162,6 +162,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp "${{ steps.binary.outputs.path }}" dist/
+          cp config/default.json dist/
           cp config/random_plant_ql_1.json dist/
           cp config/random_plant_c51_1.json dist/
           cp config/random_plant_dqn_1.json dist/

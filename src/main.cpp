@@ -22,7 +22,7 @@ bool wants_console(int argc, char** argv) {
   return false;
 }
 
-// Resolve --config <path>, or default to config/random_plant_ql_1.json.
+// Resolve --config <path>, or default to config/default.json.
 std::string config_path_from_args(int argc, char** argv) {
   for (int i = 1; i < argc; ++i) {
     if (std::strcmp(argv[i], "--config") == 0) {
@@ -32,7 +32,7 @@ std::string config_path_from_args(int argc, char** argv) {
       return {};
     }
   }
-  return "config/random_plant_ql_1.json";
+  return "config/default.json";
 }
 
 }  // namespace
