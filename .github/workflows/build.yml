@@ -108,7 +108,26 @@ jobs:
       - name: Smoke QL (console)
         shell: bash
         run: |
-          "${{ steps.binary.outputs.path }}" --console --config config/random_plant_1.json
+          set -euo pipefail
+          python3 - <<'EOF'
+          import json
+          cfg = json.load(open("config/random_plant_ql_1.json"))
+          cfg["tick_count"] = 40
+          cfg["survive_cycles"] = 0
+          cfg["log_tick_summary"] = False
+          for e in cfg["entities"]:
+              if e["type"] == "ql_agent":
+                  e["reuse_q_table"] = False
+                  e["q_table_path"] = "build/ql_smoke.bin"
+          json.dump(cfg, open("build/ql_smoke.json", "w"))
+          EOF
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            export PATH="${{ github.workspace }}/libtorch/lib:${PATH}"
+          else
+            export LD_LIBRARY_PATH="${{ github.workspace }}/libtorch/lib:${LD_LIBRARY_PATH:-}"
+            export DYLD_LIBRARY_PATH="${{ github.workspace }}/libtorch/lib:${DYLD_LIBRARY_PATH:-}"
+          fi
+          "${{ steps.binary.outputs.path }}" --console --config build/ql_smoke.json
 
       - name: Smoke C51 (console)
         shell: bash
@@ -118,6 +137,7 @@ jobs:
           import json
           cfg = json.load(open("config/random_plant_c51_1.json"))
           cfg["tick_count"] = 40
+          cfg["survive_cycles"] = 0
           cfg["log_tick_summary"] = False
           for e in cfg["entities"]:
               if e["type"] == "c51_agent":
@@ -142,10 +162,13 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp "${{ steps.binary.outputs.path }}" dist/
-          cp config/random_plant_1.json dist/
+          cp config/random_plant_ql_1.json dist/
           cp config/random_plant_c51_1.json dist/
+          cp config/random_plant_dqn_1.json dist/
           # Optional Q-table if present in the checkout (gitignored locally).
-          if [[ -f config/ql_qtable.bin ]]; then
+          if [[ -f config/ql_qtable_random_plant_1.bin ]]; then
+            cp config/ql_qtable_random_plant_1.bin dist/
+          elif [[ -f config/ql_qtable.bin ]]; then
             cp config/ql_qtable.bin dist/
           fi
           ls -la dist

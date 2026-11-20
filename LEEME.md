@@ -125,7 +125,7 @@ LIFE_WORLDS_HEADLESS=1 ./build/linux/life_worlds
 Configuración alternativa:
 
 ```bash
-./build/linux/life_worlds --config config/random_plant_1.json --console
+./build/linux/life_worlds --config config/random_plant_ql_1.json --console
 ```
 
 En la ventana: celdas vacías en verde claro; cada especie se dibuja con color de paleta según el índice (círculo si el índice es par, cuadrado si es impar) y los agentes QL son triángulos naranja, salvo que el config defina un [`visual`](#aspecto-de-plantas-y-agentes-visual) para ellos. La barra inferior muestra tick y contadores. **F8** o **Ctrl+P** activa/desactiva el modo rápido (sin dibujar el mundo).
@@ -140,7 +140,7 @@ En la ventana: celdas vacías en verde claro; cada especie se dibuja con color d
 
 ## Configuración (JSON)
 
-Edita [`config/random_plant_1.json`](config/random_plant_1.json). `load_config` parsea la simulación y llama a `compose_grid_app`, que crea el `environment`, registra las capas de dibujo y una `Entity` por cada entrada de `entities` (orden = orden de `step`).
+Edita [`config/random_plant_ql_1.json`](config/random_plant_ql_1.json). `load_config` parsea la simulación y llama a `compose_grid_app`, que crea el `environment`, registra las capas de dibujo y una `Entity` por cada entrada de `entities` (orden = orden de `step`).
 
 ### Simulación (raíz)
 

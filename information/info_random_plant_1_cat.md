@@ -3,11 +3,11 @@
 
 # Simulació `random_plant_1`: plantes i agents que aprenen
 
-Configuració: [`config/random_plant_1.json`](../config/random_plant_1.json)
+Configuració: [`config/random_plant_ql_1.json`](../config/random_plant_ql_1.json)
 
 ```bash
-./build/linux/life_worlds --config config/random_plant_1.json    # Linux
-./build/darwin/life_worlds --config config/random_plant_1.json   # macOS
+./build/linux/life_worlds --config config/random_plant_ql_1.json    # Linux
+./build/darwin/life_worlds --config config/random_plant_ql_1.json   # macOS
 ```
 
 ## El món
@@ -68,7 +68,7 @@ Per aconseguir l’aprenentatge, l’agent s’infligeix un seguit de recompense
 
 ## Configuració i entrenament
 
-En el JSON de configuració (`config/random_plant_1.json`) es poden canviar alguns paràmetres de la simulació, tant de plantes com d’agents. En els agents pots indicar si vols que s’entrenin (`train`) o que s’avaluïn (`eval`) amb l’atribut `mode`, i també altres paràmetres referents a l’aprenentatge, la quantitat d’energia rebuda o gastada, etc.
+En el JSON de configuració (`config/random_plant_ql_1.json`) es poden canviar alguns paràmetres de la simulació, tant de plantes com d’agents. En els agents pots indicar si vols que s’entrenin (`train`) o que s’avaluïn (`eval`) amb l’atribut `mode`, i també altres paràmetres referents a l’aprenentatge, la quantitat d’energia rebuda o gastada, etc.
 
 Els agents acumulen la seva experiència en una taula que es guarda com a fitxer binari anomenat `ql_qtable.bin`. Inicialment la taula no existeix i els agents actuen aleatòriament. Canvia l’atribut `mode` a `"train"` a l’apartat de la definició dels agents (`ql_agent`) de manera que es puguin entrenar. En mode entrenament, cada cop que es mor un agent en neix un de nou. Com que la taula de coneixement és compartida, els nous hereten tot el coneixement dels morts.
 

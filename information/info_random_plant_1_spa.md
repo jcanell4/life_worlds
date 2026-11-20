@@ -3,11 +3,11 @@
 
 # Simulación `random_plant_1`: plantas y agentes que aprenden
 
-Configuración: [`config/random_plant_1.json`](../config/random_plant_1.json)
+Configuración: [`config/random_plant_ql_1.json`](../config/random_plant_ql_1.json)
 
 ```bash
-./build/linux/life_worlds --config config/random_plant_1.json    # Linux
-./build/darwin/life_worlds --config config/random_plant_1.json   # macOS
+./build/linux/life_worlds --config config/random_plant_ql_1.json    # Linux
+./build/darwin/life_worlds --config config/random_plant_ql_1.json   # macOS
 ```
 
 ## El mundo
@@ -68,7 +68,7 @@ Para conseguir el aprendizaje, el agente se inflige una serie de recompensas y c
 
 ## Configuración y entrenamiento
 
-En el JSON de configuración (`config/random_plant_1.json`) se pueden cambiar algunos parámetros de la simulación, tanto de plantas como de agentes. En los agentes puedes indicar si quieres que se entrenen (`train`) o que se evalúen (`eval`) con el atributo `mode`, y también otros parámetros referentes al aprendizaje, la cantidad de energía recibida o gastada, etc.
+En el JSON de configuración (`config/random_plant_ql_1.json`) se pueden cambiar algunos parámetros de la simulación, tanto de plantas como de agentes. En los agentes puedes indicar si quieres que se entrenen (`train`) o que se evalúen (`eval`) con el atributo `mode`, y también otros parámetros referentes al aprendizaje, la cantidad de energía recibida o gastada, etc.
 
 Los agentes acumulan su experiencia en una tabla que se guarda como fichero binario llamado `ql_qtable.bin`. Inicialmente la tabla no existe y los agentes actúan aleatoriamente. Cambia el atributo `mode` a `"train"` en el apartado de la definición de los agentes (`ql_agent`) para que se puedan entrenar. En modo entrenamiento, cada vez que muere un agente nace uno nuevo. Como la tabla de conocimiento es compartida, los nuevos heredan todo el conocimiento de los muertos.
 
