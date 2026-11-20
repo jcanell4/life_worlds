@@ -95,7 +95,7 @@
       "type": "dqn_agent",
       "mode": "train",
       "vision_rays": 8,
-      "agent_count": 8,
+      "agent_count": 3,
       "energy_max": 100,
       "energy_drain": 1,
       "ingestion_factor": [

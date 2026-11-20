@@ -253,7 +253,7 @@ void Simulation::run_visual() {
             << " fast_slice_s=" << fast_slice
             << " seed=" << config_.rng_seed << '\n';
   std::cout << "Close the window or press Esc to stop.\n";
-  std::cout << "F8 / F12 / Ctrl+P toggles fast training (skips world rendering).\n"
+  std::cout << "F8 / Ctrl+P toggles fast training (skips world rendering).\n"
             << std::flush;
 
   float accumulator = 0.0f;
@@ -267,7 +267,8 @@ void Simulation::run_visual() {
 
   // True while any fast-toggle chord is held (edge detection is separate).
   const auto toggle_chord_down = []() {
-    return IsKeyDown(KEY_F8) || IsKeyDown(KEY_F12) ||
+    // F12 is reserved by raylib for screenshots — do not bind it here.
+    return IsKeyDown(KEY_F8) ||
            ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) &&
             IsKeyDown(KEY_P));
   };
@@ -329,7 +330,7 @@ void Simulation::run_visual() {
             build_hud_tokens(tick_index_, last_tick_), hud_lines);
         BeginDrawing();
         ClearBackground(Color{24, 28, 24, 255});
-        DrawText("FAST TRAIN (F8 / F12 / Ctrl+P to restore view)", hud_pad_x,
+        DrawText("FAST TRAIN (F8 / Ctrl+P to restore view)", hud_pad_x,
                  world_h / 2, 20, Color{220, 230, 220, 255});
         DrawText(("tick " + std::to_string(tick_index_)).c_str(), hud_pad_x,
                  world_h / 2 + 28, 18, Color{180, 200, 180, 255});

@@ -1,7 +1,7 @@
 {
   "tick_count": 0,
   "cycles_per_time_unit": 50,
-  "rng_seed": 42,
+  "rng_seed": 43,
   "cell_size_px": 28,
   "hud_height_px": 96,
   "hud_lines": 4,
@@ -93,8 +93,8 @@
     },
     {
       "type": "ql_agent",
-      "mode": "train",
-      "agent_count": 8,
+      "mode": "eval",
+      "agent_count": 3,
       "energy_max": 100,
       "energy_drain": 1,
       "ingestion_factor": [
@@ -117,5 +117,5 @@
       "precipice_reward": -20
     }
   ],
-  "survive_cycles": 5000
+  "survive_cycles": 0
 }

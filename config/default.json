@@ -22,8 +22,8 @@
       "plant_types": [
         {
           "name": "herb",
-          "min_population": 45,
-          "max_population": 50,
+          "min_population": 8,
+          "max_population": 20,
           "stage_count": 5,
           "death_rate_by_stage": [0.002, 0.005, 0.012, 0.018, 0.045],
           "offspring_rate_by_stage": [0.00, 0.014, 0.036, 0.100, 0.025],
@@ -39,8 +39,8 @@
         },
         {
           "name": "shrub",
-          "min_population": 45,
-          "max_population": 250,
+          "min_population": 8,
+          "max_population": 30,
           "stage_count": 6,
           "death_rate_by_stage": [0.001, 0.003, 0.008, 0.015, 0.030, 0.060],
           "offspring_rate_by_stage": [0.00, 0.012, 0.014, 0.055, 0.055, 0.015],
