@@ -2,6 +2,7 @@
 
 #include "life_worlds/core/components.hpp"
 #include "life_worlds/plant/energy_storage_plant/components.hpp"
+#include "life_worlds/plant/energy_storage_plant/visual.hpp"
 
 #include <algorithm>
 #include <array>
@@ -34,7 +35,9 @@ entt::entity spawn_plant(entt::registry& registry, PlantKind kind,
   registry.emplace<StoredEnergy>(
       entity, StoredEnergy{energy, type.maximum_energy_limit});
   registry.emplace<Lineage>(entity, Lineage{lineage_id});
-  registry.emplace<Visual>(entity, type.visual);
+  registry.emplace<Visual>(
+      entity, resolve_visual(type.visual, default_shape(),
+                             lineage_color(lineage_id)));
   return entity;
 }
 

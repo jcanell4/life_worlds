@@ -6,6 +6,9 @@ namespace life_worlds {
 struct SimulationConfig {
   // 0 = run until the window is closed (visual) / until interrupted.
   int tick_count = 0;
+  // Stop when every active agent has EpisodeCycles >= this value (0 = off).
+  // Ignored while every agent process is in eval (no training entities).
+  int survive_cycles = 0;
   // How many simulation cycles make up one time unit (e.g. one year).
   int cycles_per_time_unit = 50;
   unsigned int rng_seed = 42;

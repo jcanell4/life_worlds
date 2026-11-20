@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/linux/life_worlds",
-            "args": [],
+            "args": ["--config", "config/energy_storage_plant_1.json"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

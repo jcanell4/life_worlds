@@ -32,7 +32,29 @@ Los agentes (triángulo) se pueden mover por el mundo en 4 direcciones (N/S/E/O)
 
 Los agentes no pueden atravesar las plantas, pero sí pueden decidir cortarlas o bien comérselas. Si un agente decide cortar una planta, no recibe energía. Si decide comerse una planta cuadrada, pierde una parte importante de su energía. En cambio, si se come una planta circular, gana una parte importante.
 
-Los agentes observan el mundo con unos sensores especiales que les informan de lo que hay en cada una de las 4 direcciones y de si se encuentra tocando, cerca, a distancia media o lejos. También saben reconocer si se encuentran en un nivel de energía óptimo, medio óptimo, medio deficiente o deficiente.
+Los agentes observan el mundo con rayos de visión configurables y un nivel de energía (véase la sección siguiente).
+
+## Cómo ve el mundo el agente
+
+Se configura con `vision_rays` en el agente (`4` u `8`, por defecto 4). Las acciones de movimiento son solo N/S/E/O; Eat/Cut solo en vecinos ortogonales.
+
+**Cada rayo** reporta el primer objeto en esa dirección (hasta `max_vision` celdas, o `grid_size` si `max_vision` es `0`):
+
+- **Bucket de distancia:** `0` = 1 celda; `1` = 2–4; `2` = 5–10; `3` = más de 10.
+- **Tipo de objeto:** `herb`, `shrub`, otro agente, o `empty_edge` (celdas vacías hasta el borde / fin del rango).
+- **Etapa de crecimiento** (float en `[0, 1]`): para plantas `(índice_etapa + 1) / stage_count`; `0` para agentes, borde o plantas sin etapas. **QL ignora este campo** al construir la clave de estado.
+
+**Orden de los rayos**
+
+- `4` (ortogonal): N, S, O, E.
+- `8` (octantes): N, NE, E, SE, S, SO, O, NO.
+
+**Energía** en uno de cuatro buckets: `[75%,100%]`, `[50%,75%)`, `[25%,50%)`, `[0%,25%)`.
+
+**Codificación QL:** clave discreta con los `ray_count` pares `(distancia, tipo)` más el bucket de energía (sin etapa). Con 4 rayos: 262 144 estados teóricos; con 8 el espacio es mucho mayor (Q-table dispersa).
+
+Salir del mapa es un **precipicio** (`precipice_reward`, por defecto −20) y termina el episodio. `survive_cycles` puede detener el run cuando todos los agentes activos han sobrevivido X ciclos; solo aplica en `train` (en `eval` se ignora).
+
 
 ## Plantas comidas y cortadas
 

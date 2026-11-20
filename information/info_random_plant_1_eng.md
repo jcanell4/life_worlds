@@ -32,7 +32,29 @@ The agents (triangle) can move around the world in 4 directions (N/S/E/W) at a r
 
 Agents cannot walk through plants, but they can decide to cut them or eat them. If an agent decides to cut a plant, it receives no energy. If it decides to eat a square plant, it loses a significant part of its energy. On the other hand, if it eats a circular plant, it gains a significant part.
 
-Agents observe the world with special sensors that tell them what there is in each of the 4 directions and whether it is touching them, near, at a medium distance or far away. They can also tell whether their energy level is optimal, fairly optimal, fairly deficient or deficient.
+Agents observe the world with configurable vision rays (see the next section). Leaving the map ends the episode (`precipice_reward`).
+
+## How the agent sees the world
+
+Configured with `vision_rays` on the agent (`4` or `8`, default 4). Movement actions stay N/S/E/W; Eat/Cut only on orthogonal neighbours.
+
+**Each ray** reports the first hit along that direction (up to `max_vision` cells, or `grid_size` if `max_vision` is `0`):
+
+- **Distance bucket:** `0` = 1 cell; `1` = 2–4; `2` = 5–10; `3` = farther than 10.
+- **Object type:** `herb`, `shrub`, another agent, or `empty_edge` (empty cells until the map border / end of range).
+- **Growth stage** (float in `[0, 1]`): filled for plants as `(stage_index + 1) / stage_count`; `0` for agents, edge, or non-staged plants. **QL ignores this field** when building its state key.
+
+**Ray order**
+
+- `4` (orthogonal): N, S, W, E.
+- `8` (octants): N, NE, E, SE, S, SW, W, NW.
+
+**Energy** is also sensed as one of four buckets: `[75%,100%]`, `[50%,75%)`, `[25%,50%)`, `[0%,25%)`.
+
+**QL encoding:** a compact discrete key from the `ray_count` pairs `(distance, type)` plus the energy bucket (no growth stage). Theoretical size with 4 rays: 262 144 states; with 8 rays the space is much larger (sparse Q-table).
+
+Leaving the grid is a **precipice** (`precipice_reward`, default −20) and ends the episode. Root `survive_cycles` can stop the run when every active agent has survived that many cycles; only applies in `train` (ignored in `eval`).
+
 
 ## Eaten and cut plants
 

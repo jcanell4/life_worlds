@@ -22,6 +22,7 @@ void fail(std::string* error_out, const std::string& message) {
 SimulationConfig parse_simulation(const json& root) {
   SimulationConfig sim;
   sim.tick_count = root.value("tick_count", sim.tick_count);
+  sim.survive_cycles = root.value("survive_cycles", sim.survive_cycles);
   sim.cycles_per_time_unit =
       root.value("cycles_per_time_unit", sim.cycles_per_time_unit);
   sim.rng_seed = root.value("rng_seed", sim.rng_seed);

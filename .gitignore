@@ -1,4 +1,6 @@
 build/
 compile_commands.json
-config/ql_qtable.bin
+config/*.bin
+config/*.pt
+*.pt
 *.png

@@ -42,6 +42,8 @@ class Simulation {
  private:
   void log_tick(const TickAccumulator& tick) const;
   void log_summary() const;
+  // survive_cycles only while at least one agent process is training.
+  int effective_survive_cycles() const;
 
   SimulationConfig config_{};
   std::unique_ptr<Environment> environment_;

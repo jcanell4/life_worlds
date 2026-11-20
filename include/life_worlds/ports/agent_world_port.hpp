@@ -1,8 +1,8 @@
 #pragma once
 
-#include "life_worlds/agent/ql_agent/q_table.hpp"
-#include "life_worlds/environment/grid/action.hpp"
+#include "life_worlds/agent/observation.hpp"
 #include "life_worlds/core/events/event_queue.hpp"
+#include "life_worlds/environment/grid/action.hpp"
 
 #include <entt/entt.hpp>
 
@@ -13,12 +13,13 @@
 
 namespace life_worlds {
 
-// Sensing / actuation surface a QL agent needs from the composed world.
+// Sensing / actuation surface an agent module needs from the composed world.
 struct AgentWorldPort {
   std::function<int()> default_vision_range;
 
-  std::function<ql_agent::Vision(const entt::registry&, int x, int y, int range,
-                                 entt::entity self)>
+  // Cast vision rays; `ray_count` is 4 (orthogonal) or 8 (octant).
+  std::function<agent::Vision(const entt::registry&, int x, int y, int range,
+                              entt::entity self, int ray_count)>
       observe;
 
   std::function<grid::ActionOutcome(

@@ -2,8 +2,6 @@
 
 #include "life_worlds/core/visual.hpp"
 
-#include <optional>
-
 namespace life_worlds {
 
 // Components used by more than one kind of module.
@@ -19,12 +17,29 @@ struct Age {
   int cycles = 0;
 };
 
-// Optional look of a plant species or agent group ("visual" in the JSON),
-// copied onto each entity when it spawns. A missing field means "use the
-// module's default" for that part.
-struct Visual {
-  std::optional<Shape> shape;
-  std::optional<Rgba> color;
+// Energy an entity holds and the most it can hold. Modules that count in
+// whole units (ql_agent) store integral values.
+struct Energy {
+  double value = 0.0;
+  double max = 0.0;
 };
+
+// Resolved look of an entity, set by its module when it spawns. Render layers
+// draw from this component alone, so they do not depend on the module: an
+// entity is drawn by the layer named here, and an entity without Visual is not
+// drawn at all.
+struct Visual {
+  Shape shape = Shape::Circle;
+  Rgba color;
+  RenderLayerId layer = 0;
+};
+
+// Fill in the parts a "visual" config block left unset with the module's
+// defaults for this entity.
+inline Visual resolve_visual(const VisualConfig& config, Shape default_shape,
+                             Rgba default_color) {
+  return Visual{config.shape.value_or(default_shape),
+                config.color.value_or(default_color), config.layer};
+}
 
 }  // namespace life_worlds

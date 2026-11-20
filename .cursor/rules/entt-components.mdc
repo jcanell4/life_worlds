@@ -9,14 +9,15 @@ Any struct stored in the registry (`emplace<T>`, `view<T>`, `get<T>`, `try_get<T
 
 Pick the narrowest level that covers every user of the component:
 
-- `core/components.hpp` — used by more than one kind of module (`Position`, `Age`, `Visual`).
+- `core/components.hpp` — used by more than one kind of module (`Position`, `Age`, `Energy`, `Visual`).
 - `plant/components.hpp` — shared by the plant modules (`plant::PlantTypeIndex`).
-- `<module>/components.hpp` — owned by one module (`random_plant::Fertility`, `energy_storage_plant::Lineage`, `ql_agent::Energy`).
+- `agent/components.hpp` — shared by agent modules (`agent::Agent`, `agent::EpisodeCycles`, `agent::Inactive`).
+- `<module>/components.hpp` — owned by one module (`random_plant::Fertility`, `energy_storage_plant::Lineage`, `ql_agent::QlAgent`, `c51_agent::C51Agent`).
 
 ## Rules
 
 - Before adding a component, look in all three levels for one with the same fields. If two modules need the same data, define it once at the shared level and use it from both.
-- Marker tags stay one per module (`random_plant::Plant`, `energy_storage_plant::EnergyPlant`). A view over a shared component must include the module's marker, otherwise it also matches other modules' entities.
+- Marker tags stay one per module (`random_plant::Plant`, `energy_storage_plant::EnergyPlant`, `ql_agent::QlAgent`, `c51_agent::C51Agent`). A view over a shared component must include the module's marker, otherwise it also matches other modules' entities. Occupancy/vision over any agent uses the shared `agent::Agent` marker.
 - Enums and aliases a component needs may sit next to it (`plant::PlantKind`, `random_plant::ResidueKind`).
 - Code that creates or destroys a component's entities belongs to the module that owns the component, and other modules call it. Example: `random_plant/residue.hpp` owns `PlantResidue` entities; the grid calls `random_plant::leave_residue`.
 

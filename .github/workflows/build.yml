@@ -21,12 +21,15 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             artifact: life_worlds-linux
+            libtorch_url: https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.5.1%2Bcpu.zip
           - name: macOS
             os: macos-latest
             artifact: life_worlds-macos
+            libtorch_url: https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.5.1.zip
           - name: Windows
             os: windows-latest
             artifact: life_worlds-windows
+            libtorch_url: https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.5.1%2Bcpu.zip
 
     steps:
       - name: Checkout
@@ -40,7 +43,7 @@ jobs:
             build-essential cmake pkg-config \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxi-dev \
             libxcursor-dev libxinerama-dev libxkbcommon-dev \
-            libwayland-dev libasound2-dev
+            libwayland-dev libasound2-dev unzip
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
@@ -50,11 +53,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-fetch-
 
+      - name: Cache LibTorch
+        id: cache-libtorch
+        uses: actions/cache@v4
+        with:
+          path: libtorch
+          key: ${{ runner.os }}-libtorch-2.5.1-cpu
+
+      - name: Download LibTorch
+        if: steps.cache-libtorch.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L "${{ matrix.libtorch_url }}" -o libtorch.zip
+          unzip -q libtorch.zip
+          rm libtorch.zip
+
       - name: Configure
+        shell: bash
         run: >
           cmake -B build
           -DCMAKE_BUILD_TYPE=Release
           -DLIFE_WORLDS_FETCH_RAYLIB=ON
+          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/libtorch"
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -84,10 +105,36 @@ jobs:
           fi
           echo "path=$EXE" >> "$GITHUB_OUTPUT"
 
-      - name: Smoke (console)
+      - name: Smoke QL (console)
         shell: bash
         run: |
           "${{ steps.binary.outputs.path }}" --console --config config/random_plant_1.json
+
+      - name: Smoke C51 (console)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import json
+          cfg = json.load(open("config/random_plant_c51_1.json"))
+          cfg["tick_count"] = 40
+          cfg["log_tick_summary"] = False
+          for e in cfg["entities"]:
+              if e["type"] == "c51_agent":
+                  e["learn_start"] = 8
+                  e["train_every"] = 1
+                  e["batch_size"] = 8
+                  e["replay_capacity"] = 256
+                  e["model_path"] = "build/c51_smoke.pt"
+          json.dump(cfg, open("build/c51_smoke.json", "w"))
+          EOF
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            export PATH="${{ github.workspace }}/libtorch/lib:${PATH}"
+          else
+            export LD_LIBRARY_PATH="${{ github.workspace }}/libtorch/lib:${LD_LIBRARY_PATH:-}"
+            export DYLD_LIBRARY_PATH="${{ github.workspace }}/libtorch/lib:${DYLD_LIBRARY_PATH:-}"
+          fi
+          "${{ steps.binary.outputs.path }}" --console --config build/c51_smoke.json
 
       - name: Stage artifact
         shell: bash
@@ -96,6 +143,7 @@ jobs:
           mkdir -p dist
           cp "${{ steps.binary.outputs.path }}" dist/
           cp config/random_plant_1.json dist/
+          cp config/random_plant_c51_1.json dist/
           # Optional Q-table if present in the checkout (gitignored locally).
           if [[ -f config/ql_qtable.bin ]]; then
             cp config/ql_qtable.bin dist/

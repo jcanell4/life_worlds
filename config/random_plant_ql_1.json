@@ -1,0 +1,121 @@
+{
+  "tick_count": 0,
+  "cycles_per_time_unit": 50,
+  "rng_seed": 42,
+  "cell_size_px": 28,
+  "hud_height_px": 96,
+  "hud_lines": 4,
+  "ticks_per_second": 5.0,
+  "display_fps": 60,
+  "fast_display_fps": 5,
+  "fast_slice_seconds": 0.016,
+  "log_events": false,
+  "log_tick_summary": true,
+  "environment": {
+    "type": "grid",
+    "grid_size": 24
+  },
+  "entities": [
+    {
+      "type": "random_plant",
+      "offspring_inheritance_jitter": 0.01,
+      "plant_types": [
+        {
+          "name": "herb",
+          "min_population": 50,
+          "max_population": 100,
+          "stage_count": 5,
+          "death_rate_by_stage": [
+            0.002,
+            0.005,
+            0.012,
+            0.018,
+            0.045
+          ],
+          "offspring_rate_by_stage": [
+            0.0,
+            0.024,
+            0.046,
+            0.3,
+            0.085
+          ],
+          "time_units_by_stage": [
+            1,
+            1,
+            2,
+            5,
+            2
+          ],
+          "visual": {
+            "shape": "circle",
+            "color": [
+              72,
+              168,
+              74
+            ]
+          }
+        },
+        {
+          "name": "shrub",
+          "min_population": 40,
+          "max_population": 300,
+          "stage_count": 6,
+          "death_rate_by_stage": [
+            0.001,
+            0.003,
+            0.008,
+            0.015,
+            0.03,
+            0.06
+          ],
+          "offspring_rate_by_stage": [
+            0.0,
+            0.012,
+            0.014,
+            0.055,
+            0.055,
+            0.015
+          ],
+          "time_units_by_stage": [
+            1,
+            1,
+            1,
+            1,
+            2,
+            3
+          ],
+          "visual": {
+            "shape": "square",
+            "color": "#2E5C3A"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ql_agent",
+      "mode": "train",
+      "agent_count": 25,
+      "energy_max": 100,
+      "energy_drain": 1,
+      "ingestion_factor": [
+        2.0,
+        2.5
+      ],
+      "alpha": 0.1,
+      "gamma": 0.9,
+      "epsilon": 0.1,
+      "q_table_path": "config/ql_qtable_random_plant_1.bin",
+      "reuse_q_table": true,
+      "visual": {
+        "shape": "triangle",
+        "color": [
+          200,
+          90,
+          40
+        ]
+      },
+      "precipice_reward": -20
+    }
+  ],
+  "survive_cycles": 5000
+}

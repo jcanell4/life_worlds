@@ -19,6 +19,7 @@ class QlAgentProcess final : public Entity {
 
   void step(StepContext& ctx) override;
   void shutdown() override;
+  bool is_training() const override { return config_.mode == Mode::Train; }
 
   const QlAgentConfig& config() const { return config_; }
 

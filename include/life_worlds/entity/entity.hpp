@@ -12,6 +12,9 @@ class Entity {
   // Advance this subsystem by one simulation cycle.
   virtual void step(StepContext& ctx) = 0;
 
+  // True for RL agent processes in train mode (enables survive_cycles stop).
+  virtual bool is_training() const { return false; }
+
   // Called when the simulation run ends (save models, flush scores, ...).
   virtual void shutdown() {}
 };

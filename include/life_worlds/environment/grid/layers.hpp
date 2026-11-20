@@ -11,3 +11,4 @@ void register_default_render_layers(GridEnvironment& env);
 
 }  // namespace grid
 }  // namespace life_worlds
+

@@ -40,8 +40,8 @@ struct PlantTypeConfig {
   // max(1, time_units_by_stage[i]) * cycles_per_time_unit.
   // Values <= 0 are treated as 1.
   std::array<int, kMaxStages> time_units_by_stage{};
-  // Optional shape / color; unset parts fall back to the palette by index.
-  Visual visual;
+  // Optional shape / color / layer; unset parts fall back to module defaults.
+  VisualConfig visual;
 };
 
 struct RandomPlantConfig {

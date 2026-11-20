@@ -28,9 +28,9 @@ struct PlantTypeConfig {
   // Fraction of the parent's energy handed to the new plant when it splits;
   // the parent keeps the rest.
   double split_fraction = 0.5;
-  // Optional shape / color. Unset color: one color per lineage, shaded by
-  // stored energy. Unset shape: hexagon.
-  Visual visual;
+  // Optional shape / color / layer. Unset color: one color per lineage.
+  // Unset shape: hexagon.
+  VisualConfig visual;
 };
 
 struct EnergyStoragePlantConfig {

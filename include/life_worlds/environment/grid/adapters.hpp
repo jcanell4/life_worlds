@@ -11,6 +11,7 @@ namespace grid {
 OccupancyPort make_occupancy_port(GridEnvironment& env);
 
 // Build an agent world port (observe / apply / spawn / reset) for this grid.
+// Vision sensors must already be installed on `env`.
 AgentWorldPort make_agent_world_port(GridEnvironment& env);
 
 }  // namespace grid

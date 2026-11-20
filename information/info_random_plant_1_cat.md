@@ -32,7 +32,29 @@ Els agents (triangle) es poden moure pel món en 4 direccions (N/S/E/O) a ritme 
 
 Els agents no poden traspassar les plantes, però sí que poden decidir tallar-les o bé menjar-se-les. Si un agent decideix tallar una planta, no rep energia. Si decideix menjar-se una planta quadrada, perd una part important de la seva energia. Per contra, si es menja una planta circular, en guanya una part important.
 
-Els agents observen el món amb uns sensors especials que els informen del que hi ha en cada una de les 4 direccions i de si es troba a tocar, a prop, a distància mitjana o lluny. També saben reconèixer si es troben en un nivell d’energia òptim, mig òptim, mig deficient o deficient.
+Els agents observen el món amb rajos de visió configurables i un nivell d’energia (vegeu la secció següent).
+
+## Com veu el món l’agent
+
+Es configura amb `vision_rays` a l’agent (`4` o `8`, per defecte 4). Les accions de moviment són només N/S/E/O; Eat/Cut només en veïns ortogonals.
+
+**Cada raig** reporta el primer objecte en aquella direcció (fins a `max_vision` cel·les, o `grid_size` si `max_vision` és `0`):
+
+- **Bucket de distància:** `0` = 1 cel·la; `1` = 2–4; `2` = 5–10; `3` = més de 10.
+- **Tipus d’objecte:** `herb`, `shrub`, un altre agent, o `empty_edge` (cel·les buides fins a la vora / fi del rang).
+- **Etapa de creixement** (float a `[0, 1]`): per a plantes `(índex_etapa + 1) / stage_count`; `0` per a agents, vora o plantes sense etapes. **El QL ignora aquest camp** en construir la clau d’estat.
+
+**Ordre dels rajos**
+
+- `4` (ortogonal): N, S, O, E.
+- `8` (octants): N, NE, E, SE, S, SO, O, NO.
+
+**Energia** en un de quatre buckets: `[75%,100%]`, `[50%,75%)`, `[25%,50%)`, `[0%,25%)`.
+
+**Codificació QL:** clau discreta amb els `ray_count` parells `(distància, tipus)` més el bucket d’energia (sense etapa). Amb 4 rajos: 262 144 estats teòrics; amb 8 l’espai és molt més gran (Q-table dispersa).
+
+Sortir del mapa és un **precipici** (`precipice_reward`, defecte −20) i acaba l’episodi. `survive_cycles` pot aturar el run quan tots els agents actius han sobreviscut X cicles; només s’aplica en `train` (en `eval` s’ignora).
+
 
 ## Plantes menjades i tallades
 

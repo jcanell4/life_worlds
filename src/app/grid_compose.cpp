@@ -1,10 +1,15 @@
 #include "life_worlds/app/grid_compose.hpp"
 
+#include "life_worlds/agent/c51_agent/config.hpp"
+#include "life_worlds/agent/c51_agent/process.hpp"
+#include "life_worlds/agent/dqn_agent/config.hpp"
+#include "life_worlds/agent/dqn_agent/process.hpp"
 #include "life_worlds/agent/ql_agent/config.hpp"
 #include "life_worlds/agent/ql_agent/process.hpp"
 #include "life_worlds/environment/grid/adapters.hpp"
+#include "life_worlds/environment/grid/vision.hpp"
 #include "life_worlds/environment/grid/environment.hpp"
-#include "life_worlds/environment/grid/layers.hpp"
+#include "life_worlds/environment/grid/render_layers/render_layers.hpp"
 #include "life_worlds/plant/energy_storage_plant/config.hpp"
 #include "life_worlds/plant/energy_storage_plant/process.hpp"
 #include "life_worlds/plant/random_plant/config.hpp"
@@ -13,6 +18,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <memory>
 #include <array>
 #include <cctype>
 #include <cstdint>
@@ -120,9 +126,12 @@ Rgba parse_color(const json& value) {
   return Rgba{channels[0], channels[1], channels[2], channels[3]};
 }
 
-// Optional "visual": { "shape": ..., "color": ... } block of a species/agent.
-Visual parse_visual(const json& owner) {
-  Visual visual;
+// Optional "visual": { "shape": ..., "color": ..., "render_layer": ... } block
+// of a species/agent. `default_layer` is the grid render layer used by the
+// owner's module when the block does not name one.
+VisualConfig parse_visual(const json& owner, RenderLayerId default_layer) {
+  VisualConfig visual;
+  visual.layer = default_layer;
   if (!owner.contains("visual")) {
     return visual;
   }
@@ -136,13 +145,25 @@ Visual parse_visual(const json& owner) {
   if (obj.contains("color")) {
     visual.color = parse_color(obj.at("color"));
   }
+  if (obj.contains("render_layer")) {
+    if (!obj.at("render_layer").is_string()) {
+      throw std::runtime_error("visual.render_layer must be a string");
+    }
+    try {
+      visual.layer =
+          grid::render_layer_id(obj.at("render_layer").get<std::string>());
+    } catch (const std::runtime_error& error) {
+      throw std::runtime_error(std::string("visual.render_layer: ") +
+                               error.what());
+    }
+  }
   return visual;
 }
 
 random_plant::PlantTypeConfig parse_plant_type(const json& obj) {
   random_plant::PlantTypeConfig type;
   type.name = obj.at("name").get<std::string>();
-  type.visual = parse_visual(obj);
+  type.visual = parse_visual(obj, grid::kPlainLayer);
   type.min_population = obj.value("min_population", 0);
   type.max_population = obj.value("max_population", 0);
   if (type.max_population < 0) {
@@ -203,7 +224,7 @@ energy_storage_plant::PlantTypeConfig parse_energy_plant_type(
   type.maximum_cell_occupancy =
       obj.value("maximum_cell_occupancy", type.maximum_cell_occupancy);
   type.split_fraction = obj.value("split_fraction", type.split_fraction);
-  type.visual = parse_visual(obj);
+  type.visual = parse_visual(obj, grid::kLevelLayer);
 
   if (type.initial_count < 0) {
     throw std::runtime_error("initial_count must be >= 0" + where);
@@ -277,12 +298,169 @@ ql_agent::QlAgentConfig parse_ql_agent(const json& entity) {
   config.alpha = entity.value("alpha", config.alpha);
   config.gamma = entity.value("gamma", config.gamma);
   config.epsilon = entity.value("epsilon", config.epsilon);
+  config.precipice_reward = entity.value("precipice_reward", config.precipice_reward);
+  config.vision_rays = entity.value("vision_rays", config.vision_rays);
   config.max_vision = entity.value("max_vision", config.max_vision);
   config.q_table_path = entity.value("q_table_path", config.q_table_path);
   config.reuse_q_table = entity.value("reuse_q_table", config.reuse_q_table);
-  config.visual = parse_visual(entity);
+  config.visual = parse_visual(entity, grid::kValueBelowLayer);
   if (config.agent_count < 0) {
     throw std::runtime_error("ql_agent agent_count must be >= 0");
+  }
+  if (config.vision_rays != 4 && config.vision_rays != 8) {
+    throw std::runtime_error("ql_agent vision_rays must be 4 or 8");
+  }
+  return config;
+}
+
+c51_agent::C51AgentConfig parse_c51_agent(const json& entity) {
+  c51_agent::C51AgentConfig config;
+  const std::string mode = entity.value("mode", std::string("train"));
+  if (mode == "train") {
+    config.mode = c51_agent::Mode::Train;
+  } else if (mode == "eval") {
+    config.mode = c51_agent::Mode::Eval;
+  } else {
+    throw std::runtime_error("c51_agent mode must be \"train\" or \"eval\"");
+  }
+  config.agent_count = entity.value("agent_count", config.agent_count);
+  config.energy_max = entity.value("energy_max", config.energy_max);
+  config.energy_drain = entity.value("energy_drain", config.energy_drain);
+  config.herb_energy_delta =
+      entity.value("herb_energy_delta", config.herb_energy_delta);
+  config.shrub_energy_delta =
+      entity.value("shrub_energy_delta", config.shrub_energy_delta);
+  if (entity.contains("ingestion_factor")) {
+    const json& factors = entity.at("ingestion_factor");
+    if (!factors.is_array()) {
+      throw std::runtime_error("c51_agent ingestion_factor must be an array");
+    }
+    for (std::size_t i = 0;
+         i < config.ingestion_factor.size() && i < factors.size(); ++i) {
+      config.ingestion_factor[i] = factors.at(i).get<double>();
+    }
+  }
+  config.gamma = entity.value("gamma", config.gamma);
+  config.epsilon = entity.value("epsilon", config.epsilon);
+  config.precipice_reward = entity.value("precipice_reward", config.precipice_reward);
+  config.vision_rays = entity.value("vision_rays", config.vision_rays);
+  config.max_vision = entity.value("max_vision", config.max_vision);
+  config.n_atoms = entity.value("n_atoms", config.n_atoms);
+  config.v_min = entity.value("v_min", config.v_min);
+  config.v_max = entity.value("v_max", config.v_max);
+  if (entity.contains("hidden_sizes")) {
+    const json& sizes = entity.at("hidden_sizes");
+    if (!sizes.is_array()) {
+      throw std::runtime_error("c51_agent hidden_sizes must be an array");
+    }
+    config.hidden_sizes.clear();
+    for (const auto& size : sizes) {
+      config.hidden_sizes.push_back(size.get<int>());
+    }
+    if (config.hidden_sizes.empty()) {
+      throw std::runtime_error("c51_agent hidden_sizes must not be empty");
+    }
+  }
+  config.learning_rate = entity.value("learning_rate", config.learning_rate);
+  config.batch_size = entity.value("batch_size", config.batch_size);
+  config.replay_capacity =
+      entity.value("replay_capacity", config.replay_capacity);
+  config.learn_start = entity.value("learn_start", config.learn_start);
+  config.train_every = entity.value("train_every", config.train_every);
+  config.target_update_every =
+      entity.value("target_update_every", config.target_update_every);
+  config.model_path = entity.value("model_path", config.model_path);
+  config.reuse_model = entity.value("reuse_model", config.reuse_model);
+  config.visual = parse_visual(entity, grid::kValueBelowLayer);
+  if (config.agent_count < 0) {
+    throw std::runtime_error("c51_agent agent_count must be >= 0");
+  }
+  if (config.vision_rays != 4 && config.vision_rays != 8) {
+    throw std::runtime_error("c51_agent vision_rays must be 4 or 8");
+  }
+  if (config.n_atoms < 2) {
+    throw std::runtime_error("c51_agent n_atoms must be >= 2");
+  }
+  if (config.v_max <= config.v_min) {
+    throw std::runtime_error("c51_agent v_max must be > v_min");
+  }
+  if (config.batch_size < 1) {
+    throw std::runtime_error("c51_agent batch_size must be >= 1");
+  }
+  if (config.replay_capacity < 1) {
+    throw std::runtime_error("c51_agent replay_capacity must be >= 1");
+  }
+  return config;
+}
+
+dqn_agent::DqnAgentConfig parse_dqn_agent(const json& entity) {
+  dqn_agent::DqnAgentConfig config;
+  const std::string mode = entity.value("mode", std::string("train"));
+  if (mode == "train") {
+    config.mode = dqn_agent::Mode::Train;
+  } else if (mode == "eval") {
+    config.mode = dqn_agent::Mode::Eval;
+  } else {
+    throw std::runtime_error("dqn_agent mode must be \"train\" or \"eval\"");
+  }
+  config.agent_count = entity.value("agent_count", config.agent_count);
+  config.energy_max = entity.value("energy_max", config.energy_max);
+  config.energy_drain = entity.value("energy_drain", config.energy_drain);
+  config.herb_energy_delta =
+      entity.value("herb_energy_delta", config.herb_energy_delta);
+  config.shrub_energy_delta =
+      entity.value("shrub_energy_delta", config.shrub_energy_delta);
+  if (entity.contains("ingestion_factor")) {
+    const json& factors = entity.at("ingestion_factor");
+    if (!factors.is_array()) {
+      throw std::runtime_error("dqn_agent ingestion_factor must be an array");
+    }
+    for (std::size_t i = 0;
+         i < config.ingestion_factor.size() && i < factors.size(); ++i) {
+      config.ingestion_factor[i] = factors.at(i).get<double>();
+    }
+  }
+  config.gamma = entity.value("gamma", config.gamma);
+  config.epsilon = entity.value("epsilon", config.epsilon);
+  config.precipice_reward =
+      entity.value("precipice_reward", config.precipice_reward);
+  config.vision_rays = entity.value("vision_rays", config.vision_rays);
+  config.max_vision = entity.value("max_vision", config.max_vision);
+  if (entity.contains("hidden_sizes")) {
+    const json& sizes = entity.at("hidden_sizes");
+    if (!sizes.is_array()) {
+      throw std::runtime_error("dqn_agent hidden_sizes must be an array");
+    }
+    config.hidden_sizes.clear();
+    for (const auto& size : sizes) {
+      config.hidden_sizes.push_back(size.get<int>());
+    }
+    if (config.hidden_sizes.empty()) {
+      throw std::runtime_error("dqn_agent hidden_sizes must not be empty");
+    }
+  }
+  config.learning_rate = entity.value("learning_rate", config.learning_rate);
+  config.batch_size = entity.value("batch_size", config.batch_size);
+  config.replay_capacity =
+      entity.value("replay_capacity", config.replay_capacity);
+  config.learn_start = entity.value("learn_start", config.learn_start);
+  config.train_every = entity.value("train_every", config.train_every);
+  config.target_update_every =
+      entity.value("target_update_every", config.target_update_every);
+  config.model_path = entity.value("model_path", config.model_path);
+  config.reuse_model = entity.value("reuse_model", config.reuse_model);
+  config.visual = parse_visual(entity, grid::kValueBelowLayer);
+  if (config.agent_count < 0) {
+    throw std::runtime_error("dqn_agent agent_count must be >= 0");
+  }
+  if (config.vision_rays != 4 && config.vision_rays != 8) {
+    throw std::runtime_error("dqn_agent vision_rays must be 4 or 8");
+  }
+  if (config.batch_size < 1) {
+    throw std::runtime_error("dqn_agent batch_size must be >= 1");
+  }
+  if (config.replay_capacity < 1) {
+    throw std::runtime_error("dqn_agent replay_capacity must be >= 1");
   }
   return config;
 }
@@ -304,16 +482,35 @@ void compose_grid_app(const json& root, LoadedConfig& loaded) {
   if (grid_config.grid_size <= 0) {
     throw std::runtime_error("environment.grid_size must be > 0");
   }
-
-  auto grid_env = std::make_unique<grid::GridEnvironment>(grid_config);
-  grid::register_default_render_layers(*grid_env);
-
-  OccupancyPort occupancy = grid::make_occupancy_port(*grid_env);
-  AgentWorldPort agent_world = grid::make_agent_world_port(*grid_env);
+  if (env_json.contains("vision_rays")) {
+    throw std::runtime_error(
+        "environment.vision_rays was removed; set vision_rays on each agent "
+        "entity (ql_agent / c51_agent / dqn_agent)");
+  }
 
   if (!root.contains("entities") || !root.at("entities").is_array()) {
     throw std::runtime_error("config requires a non-empty entities array");
   }
+
+  grid::VisionPlantLookup plant_lookup;
+  plant_lookup.cycles_per_time_unit = loaded.simulation.cycles_per_time_unit;
+  for (const auto& entity : root.at("entities")) {
+    if (entity.at("type").get<std::string>() == "random_plant") {
+      const auto plant_cfg = parse_random_plant(entity);
+      plant_lookup.plant_types.insert(plant_lookup.plant_types.end(),
+                                      plant_cfg.plant_types.begin(),
+                                      plant_cfg.plant_types.end());
+    }
+  }
+
+  auto grid_env = std::make_unique<grid::GridEnvironment>(grid_config);
+  grid::register_render_layers(*grid_env);
+  grid_env->set_vision_sensors(grid::make_orthogonal_vision(plant_lookup),
+                               grid::make_octant_vision(plant_lookup));
+
+  OccupancyPort occupancy = grid::make_occupancy_port(*grid_env);
+  AgentWorldPort agent_world = grid::make_agent_world_port(*grid_env);
+
   for (const auto& entity : root.at("entities")) {
     const std::string type = entity.at("type").get<std::string>();
     if (type == "random_plant") {
@@ -327,6 +524,12 @@ void compose_grid_app(const json& root, LoadedConfig& loaded) {
     } else if (type == "ql_agent") {
       loaded.entities.push_back(std::make_unique<ql_agent::QlAgentProcess>(
           parse_ql_agent(entity), agent_world));
+    } else if (type == "c51_agent") {
+      loaded.entities.push_back(std::make_unique<c51_agent::C51AgentProcess>(
+          parse_c51_agent(entity), agent_world));
+    } else if (type == "dqn_agent") {
+      loaded.entities.push_back(std::make_unique<dqn_agent::DqnAgentProcess>(
+          parse_dqn_agent(entity), agent_world));
     } else {
       throw std::runtime_error("unknown entity type: " + type);
     }

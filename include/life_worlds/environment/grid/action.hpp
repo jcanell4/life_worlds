@@ -34,6 +34,8 @@ struct ActionOutcome {
   bool moved = false;
   bool eaten = false;
   bool cut = false;
+  // True when a move tried to leave the grid (precipice).
+  bool fell = false;
   std::string species_name;
   std::string detail;
 };

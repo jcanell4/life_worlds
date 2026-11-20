@@ -1,5 +1,6 @@
 #pragma once
 
+#include "life_worlds/core/components.hpp"
 #include "life_worlds/plant/random_plant/components.hpp"
 
 #include <entt/entt.hpp>

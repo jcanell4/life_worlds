@@ -2,6 +2,7 @@
 
 #include "life_worlds/core/components.hpp"
 #include "life_worlds/plant/random_plant/components.hpp"
+#include "life_worlds/plant/random_plant/visual.hpp"
 #include "life_worlds/plant/random_plant/residue.hpp"
 
 #include <algorithm>
@@ -174,7 +175,9 @@ void reproduce_plants(entt::registry& registry, const RandomPlantConfig& config,
     free.pop_back();
 
     const entt::entity child = spawn_plant(
-        registry, parent.kind, type.name, type.visual, cell.first, cell.second,
+        registry, parent.kind, type.name,
+        resolve_visual(type.visual, default_shape(parent.kind), color_for_kind(parent.kind)),
+        cell.first, cell.second,
         inherit_fertility(parent.fertility, stage_count_of(type),
                           config.offspring_inheritance_jitter, rng));
     ++projected[kind_index];
@@ -222,7 +225,7 @@ void seed_plants(entt::registry& registry, const RandomPlantConfig& config,
 
     const auto& type = config.plant_types[static_cast<std::size_t>(kind)];
     const entt::entity entity =
-        spawn_plant(registry, kind, type.name, type.visual, cell.first,
+        spawn_plant(registry, kind, type.name, resolve_visual(type.visual, default_shape(kind), color_for_kind(kind)), cell.first,
                     cell.second, default_fertility(type));
     event_queue.emit(events::Event::birth(entity, entt::null, type.name,
                                           cell.first, cell.second));
